@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: meta-betties-frontend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://api-server-wcjc.onrender.com
+    healthCheckPath: /
+    autoDeploy: true 
