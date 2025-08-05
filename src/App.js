@@ -12,39 +12,18 @@ function App() {
   const [nftCount, setNftCount] = useState(0);
   const [verificationResult, setVerificationResult] = useState(null);
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome to Meta Betties Private Key - Exclusive NFT Verification Portal');
-  const [isMobile, setIsMobile] = useState(false);
 
   const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'https://api-server-wcjc.onrender.com';
   const tgId = new URLSearchParams(window.location.search).get('tg_id');
 
-  // Mobile device detection
-  const detectMobile = () => {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
-    
-    // Additional checks for mobile
-    const isMobileViewport = window.innerWidth <= 768;
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    
-    const isMobile = isMobileDevice || isMobileViewport || isTouchDevice;
-    setIsMobile(isMobile);
-    
-    console.log('Mobile Detection:', {
-      userAgent: isMobileDevice,
-      viewport: isMobileViewport,
-      touch: isTouchDevice,
-      final: isMobile
-    });
-    
-    return isMobile;
-  };
-
   useEffect(() => {
-    detectMobile();
     loadConfig();
     if (!tgId) {
       updateStatus('Missing Telegram ID parameter!', 'error');
     }
+    
+    // Auto-detect and connect mobile wallets
+    autoConnectMobileWallet();
   }, [tgId]);
 
   const loadConfig = async () => {
@@ -64,353 +43,71 @@ function App() {
     setStatus({ message, type });
   };
 
-  // Mobile wallet connection functions
-  const connectMobilePhantom = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Phantom mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const phantomUrl = `https://phantom.app/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `phantom://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://phantom.app/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Phantom mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectPhantom();
-      }
-    } catch (err) {
-      updateStatus('Phantom mobile connection failed: ' + err.message, 'error');
+  // Auto-detect and connect mobile wallets
+  const autoConnectMobileWallet = async () => {
+    // Check if we're on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (!isMobile) {
+      console.log('Not on mobile device, skipping auto-connect');
+      return;
     }
-  };
 
-  const connectMobileSolflare = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Solflare mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const solflareUrl = `https://solflare.com/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `solflare://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://solflare.com/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Solflare mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectSolflare();
-      }
-    } catch (err) {
-      updateStatus('Solflare mobile connection failed: ' + err.message, 'error');
-    }
-  };
+    console.log('Mobile device detected, attempting auto-connect...');
+    updateStatus('Mobile device detected. Auto-connecting to wallet...', 'info');
 
-  const connectMobileBackpack = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Backpack mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const backpackUrl = `https://backpack.app/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `backpack://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://backpack.app/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Backpack mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectBackpack();
-      }
-    } catch (err) {
-      updateStatus('Backpack mobile connection failed: ' + err.message, 'error');
-    }
-  };
+    // Try to auto-connect to available mobile wallets
+    const mobileWallets = [
+      { name: 'Phantom', check: () => window.solana?.isPhantom, connect: connectPhantom },
+      { name: 'Solflare', check: () => typeof Solflare !== 'undefined', connect: connectSolflare },
+      { name: 'Backpack', check: () => window.xnft?.solana, connect: connectBackpack },
+      { name: 'Slope', check: () => window.slope, connect: connectSlope },
+      { name: 'Glow', check: () => window.glow, connect: connectGlow },
+      { name: 'Clover', check: () => window.clover_solana, connect: connectClover },
+      { name: 'Coinbase', check: () => window.coinbaseWalletSolana, connect: connectCoinbase },
+      { name: 'Exodus', check: () => window.exodus, connect: connectExodus },
+      { name: 'Brave', check: () => window.braveSolana, connect: connectBrave },
+      { name: 'Torus', check: () => window.torus, connect: connectTorus },
+      { name: 'Trust', check: () => window.trustwallet, connect: connectTrust },
+      { name: 'Zerion', check: () => window.zerionWallet, connect: connectZerion }
+    ];
 
-  const connectMobileSlope = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Slope mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const slopeUrl = `https://slope.finance/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `slope://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://slope.finance/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Slope mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectSlope();
+    // Try each wallet in order
+    for (const wallet of mobileWallets) {
+      try {
+        if (wallet.check()) {
+          console.log(`Found ${wallet.name} wallet, attempting connection...`);
+          updateStatus(`Found ${wallet.name} wallet, connecting...`, 'info');
+          
+          // Add a small delay to show the status
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          await wallet.connect();
+          
+          // If we get here, connection was successful
+          console.log(`${wallet.name} connected successfully`);
+          updateStatus(`${wallet.name} connected successfully!`, 'success');
+          
+          // Auto-verify after successful connection
+          setTimeout(() => {
+            if (userAddress) {
+              console.log('Auto-verifying NFT ownership...');
+              updateStatus('Auto-verifying NFT ownership...', 'info');
+              verifyNFT();
+            }
+          }, 2000);
+          
+          return; // Exit after successful connection
+        }
+      } catch (error) {
+        console.log(`${wallet.name} connection failed:`, error);
+        continue; // Try next wallet
       }
-    } catch (err) {
-      updateStatus('Slope mobile connection failed: ' + err.message, 'error');
     }
-  };
 
-  const connectMobileGlow = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Glow mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const glowUrl = `https://glow.app/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `glow://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://glow.app/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Glow mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectGlow();
-      }
-    } catch (err) {
-      updateStatus('Glow mobile connection failed: ' + err.message, 'error');
-    }
-  };
-
-  const connectMobileClover = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Clover mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const cloverUrl = `https://clover.finance/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `clover://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://clover.finance/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Clover mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectClover();
-      }
-    } catch (err) {
-      updateStatus('Clover mobile connection failed: ' + err.message, 'error');
-    }
-  };
-
-  const connectMobileCoinbase = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Coinbase mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const coinbaseUrl = `https://wallet.coinbase.com/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `coinbase://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://wallet.coinbase.com/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Coinbase mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectCoinbase();
-      }
-    } catch (err) {
-      updateStatus('Coinbase mobile connection failed: ' + err.message, 'error');
-    }
-  };
-
-  const connectMobileExodus = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Exodus mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const exodusUrl = `https://exodus.com/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `exodus://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://exodus.com/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Exodus mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectExodus();
-      }
-    } catch (err) {
-      updateStatus('Exodus mobile connection failed: ' + err.message, 'error');
-    }
-  };
-
-  const connectMobileBrave = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Brave mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const braveUrl = `https://brave.com/wallet/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `brave://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://brave.com/wallet/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Brave mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectBrave();
-      }
-    } catch (err) {
-      updateStatus('Brave mobile connection failed: ' + err.message, 'error');
-    }
-  };
-
-  const connectMobileTorus = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Torus mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const torusUrl = `https://toruswallet.io/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `torus://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://toruswallet.io/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Torus mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectTorus();
-      }
-    } catch (err) {
-      updateStatus('Torus mobile connection failed: ' + err.message, 'error');
-    }
-  };
-
-  const connectMobileTrust = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Trust Wallet mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const trustUrl = `https://trustwallet.com/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `trust://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://trustwallet.com/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Trust Wallet mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectTrust();
-      }
-    } catch (err) {
-      updateStatus('Trust Wallet mobile connection failed: ' + err.message, 'error');
-    }
-  };
-
-  const connectMobileZerion = async () => {
-    try {
-      if (isMobile) {
-        // Try to open Zerion mobile app with proper deep link
-        const currentUrl = encodeURIComponent(window.location.href);
-        const zerionUrl = `https://zerion.io/ul/browse/${currentUrl}`;
-        
-        // Try deep link first
-        const deepLink = `zerion://ul/browse/${currentUrl}`;
-        
-        // Create a timeout to fallback to web URL
-        const timeout = setTimeout(() => {
-          // If deep link doesn't work, redirect to download page
-          window.location.href = 'https://zerion.io/download';
-        }, 2000);
-        
-        // Try deep link
-        window.location.href = deepLink;
-        
-        updateStatus('Opening Zerion mobile app...', 'info');
-      } else {
-        // Desktop fallback
-        await connectZerion();
-      }
-    } catch (err) {
-      updateStatus('Zerion mobile connection failed: ' + err.message, 'error');
-    }
+    // If no wallet was found or connected
+    console.log('No mobile wallet found or connection failed');
+    updateStatus('No mobile wallet detected. Please install a Solana wallet app.', 'error');
   };
 
   const connectPhantom = async () => {
@@ -800,7 +497,8 @@ function App() {
         },
         body: JSON.stringify({
           wallet_address: userAddress,
-          tg_id: tgId
+          tg_id: tgId,
+          collection_id: 'j7qeFNnpWTbaf5g9sMCxP2zfKrH5QFgE56SuYjQDQi1'  // Meta Betties collection ID
         })
       });
 
@@ -821,20 +519,13 @@ function App() {
         updateStatus(`✅ Verification successful! You have ${count} NFTs and now have access to the exclusive Telegram group.`, 'success');
         setWelcomeMessage('Welcome to Meta Betties Private Key - Access Granted!');
         
-        // Show success message and redirect to Telegram group with better feedback
+        // Show success message and redirect to Telegram group
         setTimeout(() => {
-          updateStatus('🔄 Processing your access...', 'success');
+          updateStatus('🔄 Redirecting to Telegram group...', 'success');
           setTimeout(() => {
-            updateStatus('✅ Access granted! Redirecting to Telegram group...', 'success');
-            setTimeout(() => {
-              // Show final instructions before redirect
-              updateStatus('✅ Verification complete! You can now access the private group. If you were removed during verification, please rejoin using the link below.', 'success');
-              setTimeout(() => {
-                // Redirect to the private Telegram group
-                window.location.href = CONFIG.TELEGRAM_GROUPS.PRIVATE_KEY;
-              }, 3000); // Wait 3 seconds before redirect
-            }, 2000); // Wait 2 seconds for processing
-          }, 2000); // Wait 2 seconds for processing
+            // Redirect to the private Telegram group
+          window.location.href = CONFIG.TELEGRAM_GROUPS.PRIVATE_KEY;
+          }, 2000); // Wait 2 seconds before redirect
         }, 1000);
         
       } else {
@@ -998,25 +689,10 @@ function App() {
                 <div className="text-center">
                   <h3 className="text-2xl font-bold text-white mb-2">Choose Your Solana Wallet</h3>
                   <p className="text-gray-400">Select your preferred wallet to connect and verify NFT ownership</p>
-                  
-                  {/* Mobile device message */}
-                  {isMobile && (
-                    <div className="mt-4 p-4 bg-blue-500/10 border border-blue-400/30 rounded-xl">
-                      <div className="flex items-center justify-center space-x-2">
-                        <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        <span className="text-blue-300 font-medium">Mobile Device Detected</span>
-                      </div>
-                      <p className="text-blue-200 text-sm mt-2">
-                        Click any wallet to open the mobile app. If the app is not installed, you'll be redirected to download it.
-                      </p>
-                    </div>
-                  )}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   <button 
-                    onClick={isMobile ? connectMobilePhantom : connectPhantom} 
+                    onClick={connectPhantom} 
                     className="group relative overflow-hidden bg-gradient-to-br from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-400/30 hover:border-purple-400/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1025,13 +701,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Phantom</div>
-                        <div className="text-sm text-purple-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-purple-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileSolflare : connectSolflare} 
+                    onClick={connectSolflare} 
                     className="group relative overflow-hidden bg-gradient-to-br from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-orange-400/30 hover:border-orange-400/50 hover:scale-105 hover:shadow-xl hover:shadow-orange-500/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1040,13 +716,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Solflare</div>
-                        <div className="text-sm text-orange-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-orange-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileBackpack : connectBackpack} 
+                    onClick={connectBackpack} 
                     className="group relative overflow-hidden bg-gradient-to-br from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-400/30 hover:border-blue-400/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1055,13 +731,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Backpack</div>
-                        <div className="text-sm text-blue-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-blue-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileSlope : connectSlope} 
+                    onClick={connectSlope} 
                     className="group relative overflow-hidden bg-gradient-to-br from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-green-400/30 hover:border-green-400/50 hover:scale-105 hover:shadow-xl hover:shadow-green-500/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1070,13 +746,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Slope</div>
-                        <div className="text-sm text-green-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-green-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileGlow : connectGlow} 
+                    onClick={connectGlow} 
                     className="group relative overflow-hidden bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 hover:from-yellow-500/30 hover:to-yellow-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-yellow-400/30 hover:border-yellow-400/50 hover:scale-105 hover:shadow-xl hover:shadow-yellow-500/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1085,13 +761,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Glow</div>
-                        <div className="text-sm text-yellow-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-yellow-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileClover : connectClover} 
+                    onClick={connectClover} 
                     className="group relative overflow-hidden bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 hover:from-indigo-500/30 hover:to-indigo-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-indigo-400/30 hover:border-indigo-400/50 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1100,13 +776,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Clover</div>
-                        <div className="text-sm text-indigo-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-indigo-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileCoinbase : connectCoinbase} 
+                    onClick={connectCoinbase} 
                     className="group relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-500/30 hover:border-blue-500/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-600/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1115,13 +791,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Coinbase</div>
-                        <div className="text-sm text-blue-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-blue-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileExodus : connectExodus} 
+                    onClick={connectExodus} 
                     className="group relative overflow-hidden bg-gradient-to-br from-purple-600/20 to-purple-700/20 hover:from-purple-600/30 hover:to-purple-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-500/30 hover:border-purple-500/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-600/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1130,13 +806,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Exodus</div>
-                        <div className="text-sm text-purple-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-purple-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileBrave : connectBrave} 
+                    onClick={connectBrave} 
                     className="group relative overflow-hidden bg-gradient-to-br from-orange-600/20 to-orange-700/20 hover:from-orange-600/30 hover:to-orange-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-orange-500/30 hover:border-orange-500/50 hover:scale-105 hover:shadow-xl hover:shadow-orange-600/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1145,13 +821,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Brave</div>
-                        <div className="text-sm text-orange-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-orange-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileTorus : connectTorus} 
+                    onClick={connectTorus} 
                     className="group relative overflow-hidden bg-gradient-to-br from-teal-500/20 to-teal-600/20 hover:from-teal-500/30 hover:to-teal-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-teal-400/30 hover:border-teal-400/50 hover:scale-105 hover:shadow-xl hover:shadow-teal-500/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1160,13 +836,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Torus</div>
-                        <div className="text-sm text-teal-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-teal-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileTrust : connectTrust} 
+                    onClick={connectTrust} 
                     className="group relative overflow-hidden bg-gradient-to-br from-blue-700/20 to-blue-800/20 hover:from-blue-700/30 hover:to-blue-800/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-600/30 hover:border-blue-600/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-700/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1175,13 +851,13 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Trust</div>
-                        <div className="text-sm text-blue-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-blue-300">Solana</div>
                       </div>
                     </div>
                   </button>
 
                   <button 
-                    onClick={isMobile ? connectMobileZerion : connectZerion} 
+                    onClick={connectZerion} 
                     className="group relative overflow-hidden bg-gradient-to-br from-purple-800/20 to-purple-900/20 hover:from-purple-800/30 hover:to-purple-900/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-700/30 hover:border-purple-700/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-800/25"
                   >
                     <div className="flex flex-col items-center space-y-3">
@@ -1190,7 +866,7 @@ function App() {
                       </div>
                       <div className="text-center">
                         <div className="font-bold text-lg">Zerion</div>
-                        <div className="text-sm text-purple-300">{isMobile ? 'Mobile App' : 'Solana'}</div>
+                        <div className="text-sm text-purple-300">Solana</div>
                       </div>
                     </div>
                   </button>
