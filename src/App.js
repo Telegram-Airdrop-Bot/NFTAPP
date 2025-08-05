@@ -61,7 +61,7 @@ function App() {
     updateStatus('Mobile device detected. Please select your wallet from the options below:', 'info');
 
     // Wait a bit for wallet detection
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Try to auto-connect to available mobile wallets
     const mobileWallets = [
@@ -135,55 +135,89 @@ function App() {
 
   const connectPhantom = async () => {
     try {
+      console.log('Attempting to connect Phantom wallet...');
+      updateStatus('Connecting to Phantom wallet...', 'info');
+
       if (typeof window.solana === 'undefined') {
-        updateStatus('Phantom extension not found. Please install it from https://phantom.app.', 'error');
+        updateStatus('❌ Phantom extension not found. Please install it from https://phantom.app.', 'error');
         return;
       }
 
       if (!window.solana.isPhantom) {
-        updateStatus('Phantom extension not found. Please install it from https://phantom.app.', 'error');
+        updateStatus('❌ Phantom extension not found. Please install it from https://phantom.app.', 'error');
         return;
       }
 
       // Check if already connected
       if (window.solana.isConnected) {
+        console.log('Phantom already connected, getting public key...');
         const resp = await window.solana.connect();
-        setUserAddress(resp.publicKey.toString());
-        showVerificationSection();
-        return;
+        const publicKey = resp.publicKey.toString();
+        console.log('Phantom public key:', publicKey);
+        
+        if (publicKey) {
+          setUserAddress(publicKey);
+          showVerificationSection();
+          updateStatus('✅ Phantom wallet connected successfully!', 'success');
+          return;
+        } else {
+          throw new Error('No public key received from Phantom');
+        }
       }
 
       // Try different connection methods for mobile
       let resp;
+      let publicKey = null;
+      
       try {
+        console.log('Trying standard Phantom connection...');
         // Method 1: Standard connection
         resp = await window.solana.connect();
+        publicKey = resp.publicKey.toString();
+        console.log('Standard connection successful, public key:', publicKey);
       } catch (error) {
         console.log('Standard connection failed, trying alternative method...', error);
         
         try {
+          console.log('Trying request method...');
           // Method 2: Request accounts
           resp = await window.solana.request({ method: 'connect' });
+          publicKey = resp.publicKey ? resp.publicKey.toString() : null;
+          console.log('Request method result:', resp);
         } catch (error2) {
           console.log('Request method failed, trying connect method...', error2);
           
           try {
+            console.log('Trying direct connect...');
             // Method 3: Direct connect
             resp = await window.solana.connect({ onlyIfTrusted: false });
+            publicKey = resp.publicKey.toString();
+            console.log('Direct connect successful, public key:', publicKey);
           } catch (error3) {
             console.log('Direct connect failed, trying with force...', error3);
             
-            // Method 4: Force connection
-            resp = await window.solana.connect({ force: true });
+            try {
+              console.log('Trying force connection...');
+              // Method 4: Force connection
+              resp = await window.solana.connect({ force: true });
+              publicKey = resp.publicKey.toString();
+              console.log('Force connection successful, public key:', publicKey);
+            } catch (error4) {
+              console.log('All connection methods failed:', error4);
+              throw error4;
+            }
           }
         }
       }
 
-      if (resp && resp.publicKey) {
-        setUserAddress(resp.publicKey.toString());
+      if (publicKey && publicKey.length > 0) {
+        console.log('Phantom connection successful, setting user address:', publicKey);
+        setUserAddress(publicKey);
         showVerificationSection();
+        updateStatus('✅ Phantom wallet connected successfully!', 'success');
       } else {
-        throw new Error('Connection response invalid');
+        console.error('No valid public key received from Phantom');
+        throw new Error('No valid wallet address received from Phantom');
       }
     } catch (err) {
       console.error('Phantom connection error:', err);
@@ -192,13 +226,15 @@ function App() {
       let errorMessage = 'Phantom connection failed';
       
       if (err.code === 4001) {
-        errorMessage = 'User rejected Phantom wallet connection. Please try again.';
+        errorMessage = '❌ User rejected Phantom wallet connection. Please try again.';
       } else if (err.code === -32002) {
-        errorMessage = 'Phantom wallet connection already pending. Please check your wallet.';
+        errorMessage = '❌ Phantom wallet connection already pending. Please check your wallet.';
       } else if (err.code === -32603) {
-        errorMessage = 'Phantom wallet internal error. Please try refreshing the page.';
+        errorMessage = '❌ Phantom wallet internal error. Please try refreshing the page.';
+      } else if (err.message && err.message.includes('No valid wallet address')) {
+        errorMessage = '❌ No wallet address received from Phantom. Please try connecting again.';
       } else if (err.message) {
-        errorMessage = 'Phantom connection failed: ' + err.message;
+        errorMessage = '❌ Phantom connection failed: ' + err.message;
       }
       
       updateStatus(errorMessage, 'error');
@@ -207,26 +243,47 @@ function App() {
 
   const connectSolflare = async () => {
     try {
+      console.log('Attempting to connect Solflare wallet...');
+      updateStatus('Connecting to Solflare wallet...', 'info');
+
       const wallet = new Solflare();
 
       wallet.on('connect', () => {
-        console.log('connected', wallet.publicKey.toString());
+        console.log('Solflare connected:', wallet.publicKey.toString());
       });
 
       wallet.on('disconnect', () => {
-        console.log('disconnected');
+        console.log('Solflare disconnected');
       });
 
       await wallet.connect();
 
-      if (wallet.isConnected) {
-        setUserAddress(wallet.publicKey.toString());
-        showVerificationSection();
+      if (wallet.isConnected && wallet.publicKey) {
+        const publicKey = wallet.publicKey.toString();
+        console.log('Solflare connection successful, public key:', publicKey);
+        
+        if (publicKey && publicKey.length > 0) {
+          setUserAddress(publicKey);
+          showVerificationSection();
+          updateStatus('✅ Solflare wallet connected successfully!', 'success');
+        } else {
+          throw new Error('No valid wallet address received from Solflare');
+        }
       } else {
-        updateStatus('Solflare connection failed.', 'error');
+        throw new Error('Solflare connection failed - wallet not connected');
       }
     } catch (err) {
-      updateStatus('Solflare connection failed: ' + err.message, 'error');
+      console.error('Solflare connection error:', err);
+      
+      let errorMessage = 'Solflare connection failed';
+      
+      if (err.message && err.message.includes('No valid wallet address')) {
+        errorMessage = '❌ No wallet address received from Solflare. Please try connecting again.';
+      } else if (err.message) {
+        errorMessage = '❌ Solflare connection failed: ' + err.message;
+      }
+      
+      updateStatus(errorMessage, 'error');
     }
   };
 
