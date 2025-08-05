@@ -19,7 +19,11 @@ function App() {
   useEffect(() => {
     loadConfig();
     if (!tgId) {
-      updateStatus('Missing Telegram ID parameter!', 'error');
+      updateStatus('❌ Missing Telegram ID parameter! Please access this page from the Telegram bot link.', 'error');
+      console.error('Telegram ID missing from URL:', window.location.search);
+    } else {
+      console.log('Telegram ID found:', tgId);
+      updateStatus('✅ Telegram ID detected. Please connect your wallet to verify NFT ownership.', 'info');
     }
     
     // Auto-detect and connect mobile wallets
@@ -54,7 +58,7 @@ function App() {
     }
 
     console.log('Mobile device detected, scanning for wallets...');
-    updateStatus('Mobile device detected. Scanning for available wallets...', 'info');
+    updateStatus('Mobile device detected. Please select your wallet from the options below:', 'info');
 
     // Wait a bit for wallet detection
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -82,45 +86,19 @@ function App() {
 
     if (availableWallets.length === 0) {
       console.log('No mobile wallet found');
-      updateStatus('No mobile wallet detected. Please install a Solana wallet app.', 'error');
+      updateStatus('No mobile wallet detected. Please install a Solana wallet app or use a desktop browser.', 'error');
       return;
     }
 
-    if (availableWallets.length === 1) {
-      // Only one wallet found - auto-connect
-      const wallet = availableWallets[0];
-      console.log(`Found single wallet: ${wallet.name}, auto-connecting...`);
-      updateStatus(`Found ${wallet.name} wallet, connecting...`, 'info');
-      
-      try {
-        await wallet.connect();
-        console.log(`${wallet.name} connected successfully`);
-        updateStatus(`${wallet.name} connected successfully!`, 'success');
-        
-        // Auto-verify after successful connection
-        setTimeout(() => {
-          if (userAddress) {
-            console.log('Auto-verifying NFT ownership...');
-            updateStatus('Auto-verifying NFT ownership...', 'info');
-            verifyNFT();
-          }
-        }, 2000);
-        
-      } catch (error) {
-        console.log(`${wallet.name} connection failed:`, error);
-        updateStatus(`${wallet.name} connection failed. Please try again.`, 'error');
-      }
-    } else {
-      // Multiple wallets found - show the same web interface but highlight available ones
-      console.log(`Found ${availableWallets.length} wallets, showing web interface with available wallets highlighted...`);
-      updateStatus(`Found ${availableWallets.length} wallets. Please select one from the options below:`, 'info');
-      
-      // Show the verification section with available wallets highlighted
-      showVerificationSection();
-      
-      // Highlight available wallets in the UI
-      highlightAvailableWallets(availableWallets);
-    }
+    // Always show the web interface with available wallets highlighted
+    console.log(`Found ${availableWallets.length} wallets, showing web interface with available wallets highlighted...`);
+    updateStatus(`Found ${availableWallets.length} wallets. Please select one from the options below:`, 'info');
+    
+    // Show the verification section with available wallets highlighted
+    showVerificationSection();
+    
+    // Highlight available wallets in the UI
+    highlightAvailableWallets(availableWallets);
   };
 
   // Highlight available wallets in the web interface
@@ -579,11 +557,19 @@ function App() {
   };
 
   const verifyNFT = async () => {
-    if (!userAddress || !tgId) {
-      updateStatus('Missing wallet address or Telegram ID!', 'error');
+    // Check for Telegram ID first
+    if (!tgId) {
+      updateStatus('❌ Missing Telegram ID! Please make sure you accessed this page from the Telegram bot link.', 'error');
+      console.error('Telegram ID missing:', tgId);
       return;
     }
 
+    if (!userAddress) {
+      updateStatus('❌ Missing wallet address! Please connect your wallet first.', 'error');
+      return;
+    }
+
+    console.log('Starting verification with:', { tgId, userAddress });
     updateStatus('Verifying NFT ownership...', 'info');
 
     try {
