@@ -18,11 +18,19 @@ function App() {
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
   const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'https://api-server-wcjc.onrender.com';
-  const tgId = new URLSearchParams(window.location.search).get('tg_id');
+  const tgId = new URLSearchParams(window.location.search).get('tg_id') || 
+               new URLSearchParams(window.location.search).get('telegram_id') ||
+               new URLSearchParams(window.location.search).get('tgid') ||
+               localStorage.getItem('tg_id');
 
   useEffect(() => {
     loadConfig();
     detectMobileAndWallets();
+    
+    // Store Telegram ID in localStorage for persistence
+    if (tgId) {
+      localStorage.setItem('tg_id', tgId);
+    }
     
     if (!tgId) {
       updateStatus('❌ Missing Telegram ID parameter! Please access this page from the Telegram bot link.', 'error');
@@ -44,8 +52,11 @@ function App() {
           if (!isConnected && userAddress) {
             // If we had a previous connection but it's lost now
             checkWalletConnection();
+          } else if (isConnected && !showVerification) {
+            // If we detected a connection but haven't shown verification yet
+            console.log('Connection detected, showing verification section...');
           }
-        }, 1000);
+        }, 1500); // Increased wait time for better detection
       }
     };
 
@@ -59,7 +70,7 @@ function App() {
         if (isConnected) {
           clearInterval(connectionCheckInterval);
         }
-      }, 3000); // Check every 3 seconds
+      }, 2000); // Check every 2 seconds
     }
 
     return () => {
@@ -197,9 +208,41 @@ function App() {
         }
       }
       
+      // Additional check for any wallet with publicKey in window object
+      if (!connectedAddress) {
+        // Check for any wallet that might have connected
+        const walletProviders = [
+          { name: 'Phantom', obj: window.solana },
+          { name: 'Solflare', obj: window.solflare },
+          { name: 'Backpack', obj: window.xnft?.solana },
+          { name: 'Slope', obj: window.slope },
+          { name: 'Glow', obj: window.glow },
+          { name: 'Coinbase', obj: window.coinbaseWalletSolana },
+          { name: 'Exodus', obj: window.exodus },
+          { name: 'Trust Wallet', obj: window.trustwallet }
+        ];
+        
+        for (const provider of walletProviders) {
+          if (provider.obj && provider.obj.publicKey) {
+            try {
+              const address = provider.obj.publicKey.toString();
+              if (address && address.length > 30) { // Basic validation for Solana address
+                connectedAddress = address;
+                walletName = provider.name;
+                console.log(`Found connected ${provider.name} wallet:`, address);
+                break;
+              }
+            } catch (e) {
+              console.log(`Error checking ${provider.name}:`, e);
+            }
+          }
+        }
+      }
+      
       if (connectedAddress) {
         console.log(`Mobile wallet ${walletName} connected:`, connectedAddress);
         setUserAddress(connectedAddress);
+        setIsConnectingWallet(false);
         showVerificationSection();
         updateStatus(`✅ ${walletName} wallet connected successfully! Click "Verify NFT Ownership" to continue.`, 'success');
         return true;
@@ -416,9 +459,9 @@ function App() {
         const publicKey = connected.publicKey.toString();
         console.log(`${wallet.name} connected successfully:`, publicKey);
         setUserAddress(publicKey);
+        setIsConnectingWallet(false);
         showVerificationSection();
         updateStatus(`✅ ${wallet.name} wallet connected successfully!`, 'success');
-        setIsConnectingWallet(false);
         return;
       }
     } catch (error) {
@@ -489,6 +532,7 @@ function App() {
           console.log(`${wallet.name} app not found, trying fallback...`);
           window.open(fallbackUrl, '_blank');
           updateStatus(`${wallet.name} app not found. Please install it from the app store and try again.`, 'error');
+          setIsConnectingWallet(false);
         }
       }, 2000);
       
@@ -948,6 +992,7 @@ function App() {
 
   const showVerificationSection = () => {
     setShowVerification(true);
+    setShowNFTs(false); // Hide NFT display initially
     updateStatus('Wallet connected successfully! Click "Verify NFT Ownership" to continue.', 'success');
     fetchAndDisplayNFTs();
   };
@@ -981,9 +1026,11 @@ function App() {
 
   const verifyNFT = async () => {
     // Check for Telegram ID first
-    if (!tgId) {
+    const currentTgId = tgId || localStorage.getItem('tg_id');
+    
+    if (!currentTgId) {
       updateStatus('❌ Missing Telegram ID! Please make sure you accessed this page from the Telegram bot link.', 'error');
-      console.error('Telegram ID missing:', tgId);
+      console.error('Telegram ID missing:', currentTgId);
       return;
     }
 
@@ -992,7 +1039,7 @@ function App() {
       return;
     }
 
-    console.log('Starting verification with:', { tgId, userAddress });
+    console.log('Starting verification with:', { tgId: currentTgId, userAddress });
     updateStatus('Verifying NFT ownership...', 'info');
 
     try {
@@ -1003,7 +1050,7 @@ function App() {
         },
         body: JSON.stringify({
           wallet_address: userAddress,
-          tg_id: tgId,
+          tg_id: currentTgId,
           collection_id: 'j7qeFNnpWTbaf5g9sMCxP2zfKrH5QFgE56SuYjQDQi1'  // Meta Betties collection ID
         })
       });
@@ -1244,6 +1291,25 @@ function App() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                         Refresh Connection
+                      </button>
+                    </div>
+                    
+                    {/* Manual Check Button */}
+                    <div className="text-center">
+                      <button
+                        onClick={async () => {
+                          updateStatus('🔍 Manually checking for wallet connection...', 'info');
+                          const isConnected = await detectMobileWalletConnection();
+                          if (!isConnected) {
+                            updateStatus('No wallet connection detected. Please try connecting again.', 'error');
+                          }
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 ml-2"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Check Connection
                       </button>
                     </div>
                     
