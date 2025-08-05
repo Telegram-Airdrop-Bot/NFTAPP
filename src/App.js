@@ -53,106 +53,61 @@ function App() {
       return;
     }
 
-    console.log('Mobile device detected, scanning for wallets...');
-    updateStatus('Mobile device detected. Scanning for available wallets...', 'info');
-
-    // Wait a bit for wallet detection
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    console.log('Mobile device detected, attempting auto-connect...');
+    updateStatus('Mobile device detected. Auto-connecting to wallet...', 'info');
 
     // Try to auto-connect to available mobile wallets
     const mobileWallets = [
-      { name: 'Phantom', check: () => window.solana?.isPhantom, connect: connectPhantom, icon: '🟣' },
-      { name: 'Solflare', check: () => typeof Solflare !== 'undefined', connect: connectSolflare, icon: '🟠' },
-      { name: 'Backpack', check: () => window.xnft?.solana, connect: connectBackpack, icon: '🔵' },
-      { name: 'Slope', check: () => window.slope, connect: connectSlope, icon: '🟢' },
-      { name: 'Glow', check: () => window.glow, connect: connectGlow, icon: '🟡' },
-      { name: 'Clover', check: () => window.clover_solana, connect: connectClover, icon: '🟦' },
-      { name: 'Coinbase', check: () => window.coinbaseWalletSolana, connect: connectCoinbase, icon: '🔵' },
-      { name: 'Exodus', check: () => window.exodus, connect: connectExodus, icon: '🟣' },
-      { name: 'Brave', check: () => window.braveSolana, connect: connectBrave, icon: '🦁' },
-      { name: 'Torus', check: () => window.torus, connect: connectTorus, icon: '🌀' },
-      { name: 'Trust', check: () => window.trustwallet, connect: connectTrust, icon: '🛡️' },
-      { name: 'Zerion', check: () => window.zerionWallet, connect: connectZerion, icon: '💰' }
+      { name: 'Phantom', check: () => window.solana?.isPhantom, connect: connectPhantom },
+      { name: 'Solflare', check: () => typeof Solflare !== 'undefined', connect: connectSolflare },
+      { name: 'Backpack', check: () => window.xnft?.solana, connect: connectBackpack },
+      { name: 'Slope', check: () => window.slope, connect: connectSlope },
+      { name: 'Glow', check: () => window.glow, connect: connectGlow },
+      { name: 'Clover', check: () => window.clover_solana, connect: connectClover },
+      { name: 'Coinbase', check: () => window.coinbaseWalletSolana, connect: connectCoinbase },
+      { name: 'Exodus', check: () => window.exodus, connect: connectExodus },
+      { name: 'Brave', check: () => window.braveSolana, connect: connectBrave },
+      { name: 'Torus', check: () => window.torus, connect: connectTorus },
+      { name: 'Trust', check: () => window.trustwallet, connect: connectTrust },
+      { name: 'Zerion', check: () => window.zerionWallet, connect: connectZerion }
     ];
 
-    // Find available wallets
-    const availableWallets = mobileWallets.filter(wallet => wallet.check());
-    
-    console.log(`Found ${availableWallets.length} available wallets:`, availableWallets.map(w => w.name));
-
-    if (availableWallets.length === 0) {
-      console.log('No mobile wallet found');
-      updateStatus('No mobile wallet detected. Please install a Solana wallet app.', 'error');
-      return;
-    }
-
-    if (availableWallets.length === 1) {
-      // Only one wallet found - auto-connect
-      const wallet = availableWallets[0];
-      console.log(`Found single wallet: ${wallet.name}, auto-connecting...`);
-      updateStatus(`Found ${wallet.name} wallet, connecting...`, 'info');
-      
+    // Try each wallet in order
+    for (const wallet of mobileWallets) {
       try {
-        await wallet.connect();
-        console.log(`${wallet.name} connected successfully`);
-        updateStatus(`${wallet.name} connected successfully!`, 'success');
-        
-        // Auto-verify after successful connection
-        setTimeout(() => {
-          if (userAddress) {
-            console.log('Auto-verifying NFT ownership...');
-            updateStatus('Auto-verifying NFT ownership...', 'info');
-            verifyNFT();
-          }
-        }, 2000);
-        
+        if (wallet.check()) {
+          console.log(`Found ${wallet.name} wallet, attempting connection...`);
+          updateStatus(`Found ${wallet.name} wallet, connecting...`, 'info');
+          
+          // Add a small delay to show the status
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          await wallet.connect();
+          
+          // If we get here, connection was successful
+          console.log(`${wallet.name} connected successfully`);
+          updateStatus(`${wallet.name} connected successfully!`, 'success');
+          
+          // Auto-verify after successful connection
+          setTimeout(() => {
+            if (userAddress) {
+              console.log('Auto-verifying NFT ownership...');
+              updateStatus('Auto-verifying NFT ownership...', 'info');
+              verifyNFT();
+            }
+          }, 2000);
+          
+          return; // Exit after successful connection
+        }
       } catch (error) {
         console.log(`${wallet.name} connection failed:`, error);
-        updateStatus(`${wallet.name} connection failed. Please try again.`, 'error');
+        continue; // Try next wallet
       }
-    } else {
-      // Multiple wallets found - show the same web interface but highlight available ones
-      console.log(`Found ${availableWallets.length} wallets, showing web interface with available wallets highlighted...`);
-      updateStatus(`Found ${availableWallets.length} wallets. Please select one from the options below:`, 'info');
-      
-      // Show the verification section with available wallets highlighted
-      showVerificationSection();
-      
-      // Highlight available wallets in the UI
-      highlightAvailableWallets(availableWallets);
     }
-  };
 
-  // Highlight available wallets in the web interface
-  const highlightAvailableWallets = (availableWallets) => {
-    // Add visual indicators to available wallet buttons
-    availableWallets.forEach(wallet => {
-      const walletName = wallet.name.toLowerCase();
-      const button = document.querySelector(`[onclick*="${walletName}"]`) || 
-                    document.querySelector(`[data-wallet="${walletName}"]`);
-      
-      if (button) {
-        button.style.border = '2px solid #10b981';
-        button.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.3)';
-        button.style.position = 'relative';
-        
-        // Add "Available" badge
-        const badge = document.createElement('div');
-        badge.textContent = 'Available';
-        badge.style.cssText = `
-          position: absolute;
-          top: -8px;
-          right: -8px;
-          background: #10b981;
-          color: white;
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 10px;
-          font-weight: bold;
-        `;
-        button.appendChild(badge);
-      }
-    });
+    // If no wallet was found or connected
+    console.log('No mobile wallet found or connection failed');
+    updateStatus('No mobile wallet detected. Please install a Solana wallet app.', 'error');
   };
 
   const connectPhantom = async () => {
@@ -167,63 +122,11 @@ function App() {
         return;
       }
 
-      // Check if already connected
-      if (window.solana.isConnected) {
-        const resp = await window.solana.connect();
-        setUserAddress(resp.publicKey.toString());
-        showVerificationSection();
-        return;
-      }
-
-      // Try different connection methods for mobile
-      let resp;
-      try {
-        // Method 1: Standard connection
-        resp = await window.solana.connect();
-      } catch (error) {
-        console.log('Standard connection failed, trying alternative method...', error);
-        
-        try {
-          // Method 2: Request accounts
-          resp = await window.solana.request({ method: 'connect' });
-        } catch (error2) {
-          console.log('Request method failed, trying connect method...', error2);
-          
-          try {
-            // Method 3: Direct connect
-            resp = await window.solana.connect({ onlyIfTrusted: false });
-          } catch (error3) {
-            console.log('Direct connect failed, trying with force...', error3);
-            
-            // Method 4: Force connection
-            resp = await window.solana.connect({ force: true });
-          }
-        }
-      }
-
-      if (resp && resp.publicKey) {
-        setUserAddress(resp.publicKey.toString());
-        showVerificationSection();
-      } else {
-        throw new Error('Connection response invalid');
-      }
+      const resp = await window.solana.connect();
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
-      console.error('Phantom connection error:', err);
-      
-      // Provide specific error messages
-      let errorMessage = 'Phantom connection failed';
-      
-      if (err.code === 4001) {
-        errorMessage = 'User rejected Phantom wallet connection. Please try again.';
-      } else if (err.code === -32002) {
-        errorMessage = 'Phantom wallet connection already pending. Please check your wallet.';
-      } else if (err.code === -32603) {
-        errorMessage = 'Phantom wallet internal error. Please try refreshing the page.';
-      } else if (err.message) {
-        errorMessage = 'Phantom connection failed: ' + err.message;
-      }
-      
-      updateStatus(errorMessage, 'error');
+      updateStatus('Phantom connection failed: ' + err.message, 'error');
     }
   };
 
@@ -616,12 +519,12 @@ function App() {
         updateStatus(`✅ Verification successful! You have ${count} NFTs and now have access to the exclusive Telegram group.`, 'success');
         setWelcomeMessage('Welcome to Meta Betties Private Key - Access Granted!');
         
-        // Show success message and redirect to Telegram group ONLY on success
+        // Show success message and redirect to Telegram group
         setTimeout(() => {
           updateStatus('🔄 Redirecting to Telegram group...', 'success');
           setTimeout(() => {
-            // Redirect to the private Telegram group ONLY on success
-            window.location.href = CONFIG.TELEGRAM_GROUPS.PRIVATE_KEY;
+            // Redirect to the private Telegram group
+          window.location.href = CONFIG.TELEGRAM_GROUPS.PRIVATE_KEY;
           }, 2000); // Wait 2 seconds before redirect
         }, 1000);
         
@@ -629,14 +532,17 @@ function App() {
         setVerificationResult({
           success: false,
           nftCount: 0,
-          message: '❌ Required NFT not found in your wallet. You will be removed from the group.'
+          message: '❌ Required NFT not found in your wallet. Access denied.'
         });
-        updateStatus('❌ Required NFT not found in your wallet. You will be removed from the group.', 'error');
+        updateStatus('❌ Required NFT not found in your wallet. Access denied.', 'error');
         
-        // Show error message but DO NOT redirect - user will be removed from group by bot
+        // Show error message and redirect to main group
         setTimeout(() => {
-          updateStatus('You will be removed from the group due to verification failure.', 'error');
-          // NO REDIRECT - let the bot handle group removal
+          updateStatus(CONFIG.MESSAGES.ACCESS_DENIED, 'error');
+          setTimeout(() => {
+            // Redirect to main group for denied users
+            window.location.href = CONFIG.TELEGRAM_GROUPS.MAIN_GROUP;
+          }, 3000);
         }, 2000);
       }
     } catch (error) {
