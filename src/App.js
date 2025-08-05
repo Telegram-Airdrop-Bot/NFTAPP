@@ -26,7 +26,7 @@ function App() {
     
     // Auto-detect and connect mobile wallets
     autoConnectMobileWallet();
-  }, [tgId, REACT_APP_API_URL]);
+  }, [tgId]);
 
   const loadConfig = async () => {
     try {
@@ -159,20 +159,14 @@ function App() {
         console.log(`${available[0].name} connected successfully`);
         updateStatus(`${available[0].name} connected successfully!`, 'success');
         
-        // Wait for userAddress to be set, then auto-verify
-        const checkAndVerify = () => {
+        // Auto-verify after successful connection
+        setTimeout(() => {
           if (userAddress) {
             console.log('Auto-verifying NFT ownership...');
             updateStatus('Auto-verifying NFT ownership...', 'info');
             verifyNFT();
-          } else {
-            // Check again in 500ms if userAddress is not set yet
-            setTimeout(checkAndVerify, 500);
           }
-        };
-        
-        // Start checking after 2 seconds
-        setTimeout(checkAndVerify, 2000);
+        }, 2000);
         
       } catch (error) {
         console.log(`${available[0].name} connection failed:`, error);
@@ -197,20 +191,14 @@ function App() {
       console.log(`${selectedWallet.name} connected successfully`);
       updateStatus(`${selectedWallet.name} connected successfully!`, 'success');
       
-      // Wait for userAddress to be set, then auto-verify
-      const checkAndVerify = () => {
+      // Auto-verify after successful connection
+      setTimeout(() => {
         if (userAddress) {
           console.log('Auto-verifying NFT ownership...');
           updateStatus('Auto-verifying NFT ownership...', 'info');
           verifyNFT();
-        } else {
-          // Check again in 500ms if userAddress is not set yet
-          setTimeout(checkAndVerify, 500);
         }
-      };
-      
-      // Start checking after 2 seconds
-      setTimeout(checkAndVerify, 2000);
+      }, 2000);
       
     } catch (error) {
       console.log(`${selectedWallet.name} connection failed:`, error);
@@ -232,14 +220,8 @@ function App() {
       }
 
       const resp = await window.solana.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Phantom connection failed: ' + err.message, 'error');
     }
@@ -260,14 +242,8 @@ function App() {
       await wallet.connect();
 
       if (wallet.isConnected) {
-        const address = wallet.publicKey.toString();
-        setUserAddress(address);
-        
-        // Only show verification section if not auto-connecting on mobile
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (!isMobile) {
-          showVerificationSection();
-        }
+        setUserAddress(wallet.publicKey.toString());
+        showVerificationSection();
       } else {
         updateStatus('Solflare connection failed.', 'error');
       }
@@ -289,14 +265,8 @@ function App() {
       }
 
       const resp = await window.xnft.solana.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Backpack connection failed: ' + err.message, 'error');
     }
@@ -310,14 +280,8 @@ function App() {
       }
 
       const resp = await window.slope.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Slope connection failed: ' + err.message, 'error');
     }
@@ -331,14 +295,8 @@ function App() {
       }
 
       const resp = await window.glow.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Glow connection failed: ' + err.message, 'error');
     }
@@ -352,14 +310,8 @@ function App() {
       }
 
       const resp = await window.clover_solana.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Clover connection failed: ' + err.message, 'error');
     }
@@ -373,14 +325,8 @@ function App() {
       }
 
       const resp = await window.coinbaseWalletSolana.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Coinbase connection failed: ' + err.message, 'error');
     }
@@ -394,14 +340,8 @@ function App() {
       }
 
       const resp = await window.exodus.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Exodus connection failed: ' + err.message, 'error');
     }
@@ -415,14 +355,8 @@ function App() {
       }
 
       const resp = await window.braveSolana.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Brave connection failed: ' + err.message, 'error');
     }
@@ -436,14 +370,8 @@ function App() {
       }
 
       const resp = await window.torus.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Torus connection failed: ' + err.message, 'error');
     }
@@ -457,14 +385,8 @@ function App() {
       }
 
       const resp = await window.trustwallet.connect();
-      const address = resp.publicKey.toString();
-      setUserAddress(address);
-      
-      // Only show verification section if not auto-connecting on mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (!isMobile) {
-        showVerificationSection();
-      }
+      setUserAddress(resp.publicKey.toString());
+      showVerificationSection();
     } catch (err) {
       updateStatus('Trust Wallet connection failed: ' + err.message, 'error');
     }
@@ -593,12 +515,7 @@ function App() {
         }
         
         setUserAddress(publicKey);
-        
-        // Only show verification section if not auto-connecting on mobile
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (!isMobile) {
-          showVerificationSection();
-        }
+        showVerificationSection();
         updateStatus('Zerion Solana wallet connected successfully!', 'success');
       } else {
         updateStatus('Please connect your Zerion wallet to Solana network first. Click the Zerion extension and switch to Solana.', 'error');
