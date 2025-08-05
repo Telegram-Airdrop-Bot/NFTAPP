@@ -4,7 +4,7 @@ export const CONFIG = {
   // Telegram Group URLs
   TELEGRAM_GROUPS: {
     PRIVATE_KEY: 'https://t.me/MetaBettiesPrivateKey', // Exclusive group for NFT holders
-    MAIN_GROUP: 'https://t.me/MetaBettiesMain', // Main group for everyone
+    MAIN_GROUP: 'https://t.me/bugsfixinggroup', // Main group for everyone
     SUPPORT: 'https://t.me/MetaBettiesSupport' // Support group
   },
   
@@ -29,5 +29,6 @@ export const CONFIG = {
     TIMEOUT: 30000 // 30 seconds timeout
   }
 };
+
 
 export default CONFIG; 
