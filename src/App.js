@@ -167,11 +167,63 @@ function App() {
         return;
       }
 
-      const resp = await window.solana.connect();
-      setUserAddress(resp.publicKey.toString());
-      showVerificationSection();
+      // Check if already connected
+      if (window.solana.isConnected) {
+        const resp = await window.solana.connect();
+        setUserAddress(resp.publicKey.toString());
+        showVerificationSection();
+        return;
+      }
+
+      // Try different connection methods for mobile
+      let resp;
+      try {
+        // Method 1: Standard connection
+        resp = await window.solana.connect();
+      } catch (error) {
+        console.log('Standard connection failed, trying alternative method...', error);
+        
+        try {
+          // Method 2: Request accounts
+          resp = await window.solana.request({ method: 'connect' });
+        } catch (error2) {
+          console.log('Request method failed, trying connect method...', error2);
+          
+          try {
+            // Method 3: Direct connect
+            resp = await window.solana.connect({ onlyIfTrusted: false });
+          } catch (error3) {
+            console.log('Direct connect failed, trying with force...', error3);
+            
+            // Method 4: Force connection
+            resp = await window.solana.connect({ force: true });
+          }
+        }
+      }
+
+      if (resp && resp.publicKey) {
+        setUserAddress(resp.publicKey.toString());
+        showVerificationSection();
+      } else {
+        throw new Error('Connection response invalid');
+      }
     } catch (err) {
-      updateStatus('Phantom connection failed: ' + err.message, 'error');
+      console.error('Phantom connection error:', err);
+      
+      // Provide specific error messages
+      let errorMessage = 'Phantom connection failed';
+      
+      if (err.code === 4001) {
+        errorMessage = 'User rejected Phantom wallet connection. Please try again.';
+      } else if (err.code === -32002) {
+        errorMessage = 'Phantom wallet connection already pending. Please check your wallet.';
+      } else if (err.code === -32603) {
+        errorMessage = 'Phantom wallet internal error. Please try refreshing the page.';
+      } else if (err.message) {
+        errorMessage = 'Phantom connection failed: ' + err.message;
+      }
+      
+      updateStatus(errorMessage, 'error');
     }
   };
 
@@ -564,12 +616,12 @@ function App() {
         updateStatus(`✅ Verification successful! You have ${count} NFTs and now have access to the exclusive Telegram group.`, 'success');
         setWelcomeMessage('Welcome to Meta Betties Private Key - Access Granted!');
         
-        // Show success message and redirect to Telegram group
+        // Show success message and redirect to Telegram group ONLY on success
         setTimeout(() => {
           updateStatus('🔄 Redirecting to Telegram group...', 'success');
           setTimeout(() => {
-            // Redirect to the private Telegram group
-          window.location.href = CONFIG.TELEGRAM_GROUPS.PRIVATE_KEY;
+            // Redirect to the private Telegram group ONLY on success
+            window.location.href = CONFIG.TELEGRAM_GROUPS.PRIVATE_KEY;
           }, 2000); // Wait 2 seconds before redirect
         }, 1000);
         
@@ -577,17 +629,14 @@ function App() {
         setVerificationResult({
           success: false,
           nftCount: 0,
-          message: '❌ Required NFT not found in your wallet. Access denied.'
+          message: '❌ Required NFT not found in your wallet. You will be removed from the group.'
         });
-        updateStatus('❌ Required NFT not found in your wallet. Access denied.', 'error');
+        updateStatus('❌ Required NFT not found in your wallet. You will be removed from the group.', 'error');
         
-        // Show error message and redirect to main group
+        // Show error message but DO NOT redirect - user will be removed from group by bot
         setTimeout(() => {
-          updateStatus(CONFIG.MESSAGES.ACCESS_DENIED, 'error');
-          setTimeout(() => {
-            // Redirect to main group for denied users
-            window.location.href = CONFIG.TELEGRAM_GROUPS.MAIN_GROUP;
-          }, 3000);
+          updateStatus('You will be removed from the group due to verification failure.', 'error');
+          // NO REDIRECT - let the bot handle group removal
         }, 2000);
       }
     } catch (error) {
