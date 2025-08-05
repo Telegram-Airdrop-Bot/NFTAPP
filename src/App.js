@@ -15,6 +15,7 @@ function App() {
   const [availableMobileWallets, setAvailableMobileWallets] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
   const [isScanningWallets, setIsScanningWallets] = useState(false);
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
   const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'https://api-server-wcjc.onrender.com';
   const tgId = new URLSearchParams(window.location.search).get('tg_id');
@@ -33,19 +34,41 @@ function App() {
 
     // Add page visibility listener for mobile wallet detection
     const handleVisibilityChange = () => {
-      if (!document.hidden && isMobile && userAddress) {
+      if (!document.hidden && isMobile) {
         // User returned to the app, check if wallet is connected
         console.log('User returned to app, checking wallet connection...');
-        checkWalletConnection();
+        
+        // Wait a bit for wallet to initialize
+        setTimeout(async () => {
+          const isConnected = await detectMobileWalletConnection();
+          if (!isConnected && userAddress) {
+            // If we had a previous connection but it's lost now
+            checkWalletConnection();
+          }
+        }, 1000);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Add periodic check for mobile wallet connections
+    let connectionCheckInterval;
+    if (isMobile && !showVerification) {
+      connectionCheckInterval = setInterval(async () => {
+        const isConnected = await detectMobileWalletConnection();
+        if (isConnected) {
+          clearInterval(connectionCheckInterval);
+        }
+      }, 3000); // Check every 3 seconds
+    }
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (connectionCheckInterval) {
+        clearInterval(connectionCheckInterval);
+      }
     };
-  }, [tgId, isMobile, userAddress]);
+  }, [tgId, isMobile, userAddress, showVerification]);
 
   // Check if wallet is still connected when user returns to app
   const checkWalletConnection = async () => {
@@ -81,6 +104,114 @@ function App() {
     }
   };
 
+  // Enhanced mobile wallet connection detection
+  const detectMobileWalletConnection = async () => {
+    console.log('Detecting mobile wallet connection...');
+    
+    try {
+      let connectedAddress = null;
+      let walletName = '';
+      
+      // Check Phantom
+      if (window.solana?.isPhantom && window.solana.isConnected) {
+        connectedAddress = window.solana.publicKey?.toString();
+        walletName = 'Phantom';
+      }
+      // Check Solflare
+      else if (window.solflare && window.solflare.isConnected) {
+        connectedAddress = window.solflare.publicKey?.toString();
+        walletName = 'Solflare';
+      }
+      // Check Backpack
+      else if (window.xnft?.solana && window.xnft.solana.isConnected) {
+        connectedAddress = window.xnft.solana.publicKey?.toString();
+        walletName = 'Backpack';
+      }
+      // Check Slope
+      else if (window.slope && window.slope.isConnected) {
+        connectedAddress = window.slope.publicKey?.toString();
+        walletName = 'Slope';
+      }
+      // Check Glow
+      else if (window.glow && window.glow.isConnected) {
+        connectedAddress = window.glow.publicKey?.toString();
+        walletName = 'Glow';
+      }
+      // Check Coinbase
+      else if (window.coinbaseWalletSolana && window.coinbaseWalletSolana.isConnected) {
+        connectedAddress = window.coinbaseWalletSolana.publicKey?.toString();
+        walletName = 'Coinbase';
+      }
+      // Check Exodus
+      else if (window.exodus && window.exodus.isConnected) {
+        connectedAddress = window.exodus.publicKey?.toString();
+        walletName = 'Exodus';
+      }
+      // Check Trust Wallet
+      else if (window.trustwallet && window.trustwallet.isConnected) {
+        connectedAddress = window.trustwallet.publicKey?.toString();
+        walletName = 'Trust Wallet';
+      }
+      
+      // Additional checks for wallets that might not have isConnected property
+      if (!connectedAddress) {
+        // Check Phantom without isConnected
+        if (window.solana?.isPhantom && window.solana.publicKey) {
+          connectedAddress = window.solana.publicKey.toString();
+          walletName = 'Phantom';
+        }
+        // Check Solflare without isConnected
+        else if (window.solflare && window.solflare.publicKey) {
+          connectedAddress = window.solflare.publicKey.toString();
+          walletName = 'Solflare';
+        }
+        // Check Backpack without isConnected
+        else if (window.xnft?.solana && window.xnft.solana.publicKey) {
+          connectedAddress = window.xnft.solana.publicKey.toString();
+          walletName = 'Backpack';
+        }
+        // Check Slope without isConnected
+        else if (window.slope && window.slope.publicKey) {
+          connectedAddress = window.slope.publicKey.toString();
+          walletName = 'Slope';
+        }
+        // Check Glow without isConnected
+        else if (window.glow && window.glow.publicKey) {
+          connectedAddress = window.glow.publicKey.toString();
+          walletName = 'Glow';
+        }
+        // Check Coinbase without isConnected
+        else if (window.coinbaseWalletSolana && window.coinbaseWalletSolana.publicKey) {
+          connectedAddress = window.coinbaseWalletSolana.publicKey.toString();
+          walletName = 'Coinbase';
+        }
+        // Check Exodus without isConnected
+        else if (window.exodus && window.exodus.publicKey) {
+          connectedAddress = window.exodus.publicKey.toString();
+          walletName = 'Exodus';
+        }
+        // Check Trust Wallet without isConnected
+        else if (window.trustwallet && window.trustwallet.publicKey) {
+          connectedAddress = window.trustwallet.publicKey.toString();
+          walletName = 'Trust Wallet';
+        }
+      }
+      
+      if (connectedAddress) {
+        console.log(`Mobile wallet ${walletName} connected:`, connectedAddress);
+        setUserAddress(connectedAddress);
+        showVerificationSection();
+        updateStatus(`✅ ${walletName} wallet connected successfully! Click "Verify NFT Ownership" to continue.`, 'success');
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error detecting mobile wallet connection:', error);
+      return false;
+    }
+  };
+
   // Manual refresh for mobile users
   const refreshWalletConnection = async () => {
     updateStatus('🔄 Refreshing wallet connection...', 'info');
@@ -89,27 +220,10 @@ function App() {
     await detectMobileAndWallets();
     
     // Try to detect if any wallet is already connected
-    try {
-      let connectedAddress = null;
-      
-      if (window.solana?.isPhantom && window.solana.isConnected) {
-        connectedAddress = window.solana.publicKey?.toString();
-      } else if (window.solflare && window.solflare.isConnected) {
-        connectedAddress = window.solflare.publicKey?.toString();
-      } else if (window.xnft?.solana && window.xnft.solana.isConnected) {
-        connectedAddress = window.xnft.solana.publicKey?.toString();
-      }
-      
-      if (connectedAddress) {
-        setUserAddress(connectedAddress);
-        showVerificationSection();
-        updateStatus('✅ Wallet connection detected! Click "Verify NFT Ownership" to continue.', 'success');
-      } else {
-        updateStatus('No wallet connection detected. Please select a wallet to connect.', 'info');
-      }
-    } catch (error) {
-      console.error('Error refreshing wallet connection:', error);
-      updateStatus('Failed to refresh wallet connection. Please try again.', 'error');
+    const isConnected = await detectMobileWalletConnection();
+    
+    if (!isConnected) {
+      updateStatus('No wallet connection detected. Please select a wallet to connect.', 'info');
     }
   };
 
@@ -291,6 +405,7 @@ function App() {
   // Handle mobile wallet selection and connection
   const handleMobileWalletSelection = async (wallet) => {
     console.log(`User selected ${wallet.name} wallet`);
+    setIsConnectingWallet(true);
     updateStatus(`Connecting to ${wallet.name}...`, 'info');
     
     try {
@@ -303,6 +418,7 @@ function App() {
         setUserAddress(publicKey);
         showVerificationSection();
         updateStatus(`✅ ${wallet.name} wallet connected successfully!`, 'success');
+        setIsConnectingWallet(false);
         return;
       }
     } catch (error) {
@@ -315,6 +431,7 @@ function App() {
     } catch (deepLinkError) {
       console.log(`Deep link failed for ${wallet.name}:`, deepLinkError);
       updateStatus(`Failed to connect to ${wallet.name}. Please try again or select another wallet.`, 'error');
+      setIsConnectingWallet(false);
     }
   };
 
@@ -1085,8 +1202,32 @@ function App() {
                   </div>
                 )}
 
+                {/* Mobile Wallet Connecting State */}
+                {isMobile && isConnectingWallet && (
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full mb-4 shadow-lg animate-pulse">
+                      <svg className="w-8 h-8 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Connecting Wallet</h3>
+                    <p className="text-gray-400">Please approve the connection in your wallet app and return to this page...</p>
+                    <div className="mt-4">
+                      <button
+                        onClick={() => {
+                          setIsConnectingWallet(false);
+                          updateStatus('Connection cancelled. Please try again.', 'error');
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-300"
+                      >
+                        Cancel Connection
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Mobile Wallet Selection */}
-                {isMobile && !isScanningWallets && availableMobileWallets.length > 0 && (
+                {isMobile && !isScanningWallets && !isConnectingWallet && availableMobileWallets.length > 0 && (
                   <div className="space-y-6">
                     <div className="text-center">
                       <h3 className="text-2xl font-bold text-white mb-2">Select Your Mobile Wallet</h3>
@@ -1154,7 +1295,7 @@ function App() {
                 )}
 
                 {/* No Mobile Wallets Found */}
-                {isMobile && !isScanningWallets && availableMobileWallets.length === 0 && (
+                {isMobile && !isScanningWallets && !isConnectingWallet && availableMobileWallets.length === 0 && (
                   <div className="text-center py-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full mb-4 shadow-lg">
                       <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
