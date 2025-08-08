@@ -160,6 +160,10 @@ function NFTVerificationApp() {
           if (walletObj && walletObj.isConnected && walletObj.publicKey) {
             return walletObj.publicKey.toString();
           }
+          // Check for connected state
+          if (walletObj && walletObj.isConnected) {
+            return walletObj.publicKey?.toString() || null;
+          }
           return null;
         } catch (error) {
           console.log(`Error checking ${name}:`, error);
@@ -207,6 +211,9 @@ function NFTVerificationApp() {
     console.log(`Connecting to ${walletName} on mobile...`);
     setIsConnectingWallet(true);
     updateStatus(`Connecting to ${walletName}...`, 'info');
+    
+    // Store the wallet attempt for retry functionality
+    localStorage.setItem('lastWalletAttempt', walletName);
     
     try {
       let connected = false;
@@ -311,7 +318,7 @@ function NFTVerificationApp() {
         showVerificationSection();
         updateStatus(`✅ ${walletName} wallet connected successfully!`, 'success');
       } else {
-        // If direct connection fails, try deep linking
+        // If direct connection fails, try deep linking with better flow
         updateStatus(`Opening ${walletName} app... Please approve the connection and return to this page.`, 'info');
         await openWalletApp(walletName);
       }
@@ -333,36 +340,43 @@ function NFTVerificationApp() {
     let appUrl = '';
     let fallbackUrl = '';
     let deepLinkUrl = '';
+    let universalLink = '';
     
-    // Enhanced deep links and fallback URLs
+    // Enhanced deep links and fallback URLs with universal links
     switch (walletName) {
       case 'Phantom':
         deepLinkUrl = 'phantom://';
+        universalLink = 'https://phantom.app/ul/browse/';
         appUrl = 'https://phantom.app/ul/browse/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/phantom/id1598432977' : 'https://play.google.com/store/apps/details?id=app.phantom';
         break;
       case 'Solflare':
         deepLinkUrl = 'solflare://';
+        universalLink = 'https://solflare.com/';
         appUrl = 'https://solflare.com/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/solflare/id1580902717' : 'https://play.google.com/store/apps/details?id=com.solflare.mobile';
         break;
       case 'Backpack':
         deepLinkUrl = 'backpack://';
+        universalLink = 'https://backpack.app/';
         appUrl = 'https://backpack.app/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/backpack/id6443944476' : 'https://play.google.com/store/apps/details?id=app.backpack';
         break;
       case 'Slope':
         deepLinkUrl = 'slope://';
+        universalLink = 'https://slope.finance/';
         appUrl = 'https://slope.finance/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/slope-wallet/id1574624530' : 'https://play.google.com/store/apps/details?id=com.slope.finance';
         break;
       case 'Glow':
         deepLinkUrl = 'glow://';
+        universalLink = 'https://glow.app/';
         appUrl = 'https://glow.app/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/glow-wallet/id1635713293' : 'https://play.google.com/store/apps/details?id=com.glow.wallet';
         break;
       case 'Coinbase':
         deepLinkUrl = 'coinbase://';
+        universalLink = 'https://wallet.coinbase.com/';
         appUrl = 'https://wallet.coinbase.com/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/coinbase-wallet/id1278383455' : 'https://play.google.com/store/apps/details?id=org.toshi';
         break;
@@ -378,10 +392,10 @@ function NFTVerificationApp() {
         // For in-app browsers, try to open in external browser
         if (isTelegram && window.Telegram?.WebApp) {
           // Use Telegram WebApp to open external browser
-          window.Telegram.WebApp.openTelegramLink(appUrl);
+          window.Telegram.WebApp.openTelegramLink(universalLink);
         } else {
           // Fallback for other in-app browsers
-          window.open(appUrl, '_blank');
+          window.open(universalLink, '_blank');
         }
         
         setTimeout(() => {
@@ -391,11 +405,35 @@ function NFTVerificationApp() {
         return;
       }
       
-      // For regular mobile browsers, try deep link first
-      if (deepLinkUrl) {
+      // For regular mobile browsers, try multiple methods
+      let opened = false;
+      
+      // Method 1: Try universal link first (works better on iOS)
+      if (universalLink) {
         try {
-          // Try deep link
+          console.log(`Trying universal link: ${universalLink}`);
+          window.location.href = universalLink;
+          opened = true;
+          
+          // Fallback to deep link after a delay
+          setTimeout(() => {
+            if (deepLinkUrl) {
+              console.log(`Trying deep link: ${deepLinkUrl}`);
+              window.location.href = deepLinkUrl;
+            }
+          }, 1000);
+          
+        } catch (error) {
+          console.log('Universal link failed:', error);
+        }
+      }
+      
+      // Method 2: Try deep link if universal link didn't work
+      if (!opened && deepLinkUrl) {
+        try {
+          console.log(`Trying deep link: ${deepLinkUrl}`);
           window.location.href = deepLinkUrl;
+          opened = true;
           
           // Fallback to app URL after a delay
           setTimeout(() => {
@@ -403,10 +441,13 @@ function NFTVerificationApp() {
           }, 1000);
           
         } catch (error) {
-          console.log('Deep link failed, trying app URL...');
-          window.open(appUrl, '_blank');
+          console.log('Deep link failed:', error);
         }
-      } else {
+      }
+      
+      // Method 3: Fallback to app URL
+      if (!opened) {
+        console.log(`Trying app URL: ${appUrl}`);
         window.open(appUrl, '_blank');
       }
       
@@ -897,10 +938,12 @@ function NFTVerificationApp() {
                     <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-4 mb-4 border border-blue-400/30">
                       <div className="text-sm text-gray-300 space-y-2">
                         <p>• Open your wallet app</p>
+                        <p>• Look for a connection request notification</p>
                         <p>• Approve the connection request</p>
                         <p>• Return to this page</p>
                         <p>• Click "Check Connection" below</p>
                         <p>• If it doesn't work, try "Retry Connection"</p>
+                        <p>• If no request appears, open wallet manually and check</p>
                       </div>
                     </div>
                     
@@ -919,6 +962,21 @@ function NFTVerificationApp() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         Check Connection
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          updateStatus('🔄 Retrying wallet connection...', 'info');
+                          // Try to open wallet app again
+                          const currentWallet = localStorage.getItem('lastWalletAttempt') || 'Phantom';
+                          await openWalletApp(currentWallet);
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Retry Connection
                       </button>
                       
                       <button
@@ -958,9 +1016,11 @@ function NFTVerificationApp() {
                       <div className="text-sm text-gray-300 space-y-2">
                         <p>• Select your wallet below</p>
                         <p>• Your wallet app will open automatically</p>
+                        <p>• Look for a connection request in your wallet</p>
                         <p>• Approve the connection in your wallet</p>
                         <p>• Return to this page when done</p>
                         <p>• Click "Check Connection" if needed</p>
+                        <p>• If no request appears, try opening wallet manually</p>
                       </div>
                     </div>
                     
