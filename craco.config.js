@@ -18,6 +18,8 @@ module.exports = {
         url: require.resolve('url'),
         path: require.resolve('path-browserify'),
         querystring: require.resolve('querystring-es3'),
+        zlib: require.resolve('browserify-zlib'),
+        constants: require.resolve('constants-browserify'),
         fs: false,
         net: false,
         tls: false,
@@ -34,6 +36,17 @@ module.exports = {
           'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
         })
       );
+
+      // Add module rules for better resolution
+      webpackConfig.module.rules.push({
+        test: /\.m?js$/,
+        resolve: {
+          fullySpecified: false,
+        },
+      });
+
+      // Configure resolve extensions
+      webpackConfig.resolve.extensions = ['.js', '.jsx', '.ts', '.tsx', '.json'];
 
       return webpackConfig;
     },
