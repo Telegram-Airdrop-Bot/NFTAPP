@@ -245,6 +245,34 @@ function NFTVerificationApp() {
         }
       };
       
+      // Check if wallet is installed first
+      const isWalletInstalled = (walletName) => {
+        switch (walletName) {
+          case 'Phantom':
+            return typeof window.solana !== 'undefined' && window.solana?.isPhantom;
+          case 'Solflare':
+            return typeof window.solflare !== 'undefined';
+          case 'Backpack':
+            return typeof window.xnft !== 'undefined' && window.xnft?.solana;
+          case 'Slope':
+            return typeof window.slope !== 'undefined';
+          case 'Glow':
+            return typeof window.glow !== 'undefined';
+          case 'Coinbase':
+            return typeof window.coinbaseWalletSolana !== 'undefined';
+          default:
+            return false;
+        }
+      };
+      
+      // Check if wallet is installed
+      if (!isWalletInstalled(walletName)) {
+        console.log(`${walletName} wallet not detected, trying deep link...`);
+        updateStatus(`${walletName} wallet not detected. Opening app...`, 'info');
+        await openWalletApp(walletName);
+        return;
+      }
+      
       // Try to connect based on wallet name
       switch (walletName) {
         case 'Phantom':
@@ -963,20 +991,37 @@ function NFTVerificationApp() {
                     
                     {/* Enhanced Mobile Connection Instructions */}
                     <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-4 mb-4 border border-blue-400/30">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <h4 className="text-white font-semibold">Mobile Connection Guide</h4>
+                      </div>
                       <div className="text-sm text-gray-300 space-y-2">
-                        <p>• Open your wallet app</p>
-                        <p>• Look for a connection request notification</p>
-                        <p>• Approve the connection request</p>
-                        <p>• Return to this page</p>
-                        <p>• Click "Check Connection" below</p>
-                        <p>• If it doesn't work, try "Retry Connection"</p>
-                        <p>• If no request appears, open wallet manually and check</p>
+                        <p>• Select your wallet below</p>
+                        <p>• Your wallet app will open automatically</p>
+                        <p>• Look for a connection request in your wallet</p>
+                        <p>• Approve the connection in your wallet</p>
+                        <p>• Return to this page when done</p>
+                        <p>• Click "Check Connection" if needed</p>
+                        <p>• If no request appears, try opening wallet manually</p>
                         {/android/i.test(navigator.userAgent) && (
                           <>
-                            <p className="text-yellow-300 font-medium">Android Tips:</p>
-                            <p>• Check wallet app notifications</p>
-                            <p>• Try opening wallet app manually</p>
-                            <p>• Look for "Connect" or "Approve" buttons</p>
+                            <p className="text-yellow-300 font-medium">Android Users:</p>
+                            <p>• If wallet doesn't open, try "Retry Connection"</p>
+                            <p>• You may need to manually open your wallet app</p>
+                            <p>• Check for connection requests in wallet notifications</p>
+                            <p>• If app opens but no connection request, try manual connection</p>
+                          </>
+                        )}
+                        {/iphone|ipad|ipod/i.test(navigator.userAgent) && (
+                          <>
+                            <p className="text-blue-300 font-medium">iOS Users:</p>
+                            <p>• If wallet doesn't open, try "Retry Connection"</p>
+                            <p>• Check Safari for wallet app prompts</p>
+                            <p>• Look for connection requests in wallet app</p>
                           </>
                         )}
                       </div>
@@ -1012,6 +1057,32 @@ function NFTVerificationApp() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                         Retry Connection
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          updateStatus('📱 Opening wallet manually...', 'info');
+                          const currentWallet = localStorage.getItem('lastWalletAttempt') || 'Phantom';
+                          // Open wallet app directly without deep linking
+                          const walletUrls = {
+                            'Phantom': 'phantom://',
+                            'Solflare': 'solflare://',
+                            'Backpack': 'backpack://',
+                            'Slope': 'slope://',
+                            'Glow': 'glow://',
+                            'Coinbase': 'coinbase://'
+                          };
+                          const directUrl = walletUrls[currentWallet];
+                          if (directUrl) {
+                            window.location.href = directUrl;
+                          }
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Open Wallet
                       </button>
                       
                       <button
@@ -1062,6 +1133,15 @@ function NFTVerificationApp() {
                             <p>• If wallet doesn't open, try "Retry Connection"</p>
                             <p>• You may need to manually open your wallet app</p>
                             <p>• Check for connection requests in wallet notifications</p>
+                            <p>• If app opens but no connection request, try manual connection</p>
+                          </>
+                        )}
+                        {/iphone|ipad|ipod/i.test(navigator.userAgent) && (
+                          <>
+                            <p className="text-blue-300 font-medium">iOS Users:</p>
+                            <p>• If wallet doesn't open, try "Retry Connection"</p>
+                            <p>• Check Safari for wallet app prompts</p>
+                            <p>• Look for connection requests in wallet app</p>
                           </>
                         )}
                       </div>
