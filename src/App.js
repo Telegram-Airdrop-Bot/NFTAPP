@@ -36,6 +36,7 @@ function App() {
 // Main NFT Verification App Component
 function NFTVerificationApp() {
   const { publicKey, connect, disconnect, connected, wallet } = useWallet();
+  const [userAddress, setUserAddress] = useState('');
   const [heliusApiKey, setHeliusApiKey] = useState('');
   const [status, setStatus] = useState({ message: 'Connect your wallet to verify NFT ownership', type: 'info' });
   const [showVerification, setShowVerification] = useState(false);
@@ -114,14 +115,30 @@ function NFTVerificationApp() {
     setStatus({ message, type });
   };
 
-  // Detect mobile device
+  // Enhanced mobile detection with in-app browser support
   const detectMobileDevice = () => {
     const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    setIsMobile(mobileCheck);
-    console.log('Mobile device detected:', mobileCheck);
+    const isInAppBrowser = /TelegramWebApp|FB_IAB|Instagram|Line|WhatsApp|Twitter|Discord/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+    
+    const isMobile = mobileCheck || isInAppBrowser || isStandalone;
+    setIsMobile(isMobile);
+    
+    console.log('Mobile detection:', {
+      mobileCheck,
+      isInAppBrowser,
+      isStandalone,
+      isMobile,
+      userAgent: navigator.userAgent
+    });
+    
+    // Handle in-app browser limitations
+    if (isInAppBrowser) {
+      updateStatus('⚠️ In-app browser detected. Some wallet features may be limited. Consider opening in external browser.', 'info');
+    }
   };
 
-  // Detect mobile wallet connection
+  // Enhanced mobile wallet connection detection
   const detectMobileWalletConnection = async () => {
     if (!isMobile) return false;
     
@@ -131,48 +148,39 @@ function NFTVerificationApp() {
       let connectedAddress = null;
       let walletName = '';
       
-      // Check for connected wallets
-      if (window.solana?.isPhantom && window.solana.isConnected) {
-        connectedAddress = window.solana.publicKey?.toString();
-        walletName = 'Phantom';
-      } else if (window.solflare && window.solflare.isConnected) {
-        connectedAddress = window.solflare.publicKey?.toString();
-        walletName = 'Solflare';
-      } else if (window.xnft?.solana && window.xnft.solana.isConnected) {
-        connectedAddress = window.xnft.solana.publicKey?.toString();
-        walletName = 'Backpack';
-      } else if (window.slope && window.slope.isConnected) {
-        connectedAddress = window.slope.publicKey?.toString();
-        walletName = 'Slope';
-      } else if (window.glow && window.glow.isConnected) {
-        connectedAddress = window.glow.publicKey?.toString();
-        walletName = 'Glow';
-      } else if (window.coinbaseWalletSolana && window.coinbaseWalletSolana.isConnected) {
-        connectedAddress = window.coinbaseWalletSolana.publicKey?.toString();
-        walletName = 'Coinbase';
-      }
-      
-      // Additional checks for wallets without isConnected property
-      if (!connectedAddress) {
-        if (window.solana?.isPhantom && window.solana.publicKey) {
-          connectedAddress = window.solana.publicKey.toString();
-          walletName = 'Phantom';
-        } else if (window.solflare && window.solflare.publicKey) {
-          connectedAddress = window.solflare.publicKey.toString();
-          walletName = 'Solflare';
-        } else if (window.xnft?.solana && window.xnft.solana.publicKey) {
-          connectedAddress = window.xnft.solana.publicKey.toString();
-          walletName = 'Backpack';
-        } else if (window.slope && window.slope.publicKey) {
-          connectedAddress = window.slope.publicKey.toString();
-          walletName = 'Slope';
-        } else if (window.glow && window.glow.publicKey) {
-          connectedAddress = window.glow.publicKey.toString();
-          walletName = 'Glow';
-        } else if (window.coinbaseWalletSolana && window.coinbaseWalletSolana.publicKey) {
-          connectedAddress = window.coinbaseWalletSolana.publicKey.toString();
-          walletName = 'Coinbase';
+      // Enhanced wallet detection with better error handling
+      const checkWallet = (walletObj, name) => {
+        try {
+          if (walletObj && walletObj.publicKey) {
+            return walletObj.publicKey.toString();
+          }
+          if (walletObj && walletObj.isConnected && walletObj.publicKey) {
+            return walletObj.publicKey.toString();
+          }
+          return null;
+        } catch (error) {
+          console.log(`Error checking ${name}:`, error);
+          return null;
         }
+      };
+      
+      // Check for connected wallets with enhanced detection
+      connectedAddress = checkWallet(window.solana, 'Phantom') || 
+                       checkWallet(window.solflare, 'Solflare') ||
+                       checkWallet(window.xnft?.solana, 'Backpack') ||
+                       checkWallet(window.slope, 'Slope') ||
+                       checkWallet(window.glow, 'Glow') ||
+                       checkWallet(window.coinbaseWalletSolana, 'Coinbase');
+      
+      // Determine wallet name
+      if (connectedAddress) {
+        if (window.solana?.publicKey?.toString() === connectedAddress) walletName = 'Phantom';
+        else if (window.solflare?.publicKey?.toString() === connectedAddress) walletName = 'Solflare';
+        else if (window.xnft?.solana?.publicKey?.toString() === connectedAddress) walletName = 'Backpack';
+        else if (window.slope?.publicKey?.toString() === connectedAddress) walletName = 'Slope';
+        else if (window.glow?.publicKey?.toString() === connectedAddress) walletName = 'Glow';
+        else if (window.coinbaseWalletSolana?.publicKey?.toString() === connectedAddress) walletName = 'Coinbase';
+        else walletName = 'Unknown Wallet';
       }
       
       if (connectedAddress) {
@@ -191,7 +199,7 @@ function NFTVerificationApp() {
     }
   };
 
-  // Handle mobile wallet connection
+  // Enhanced mobile wallet connection handler
   const handleMobileWalletConnection = async (walletName) => {
     console.log(`Connecting to ${walletName} on mobile...`);
     setIsConnectingWallet(true);
@@ -200,59 +208,95 @@ function NFTVerificationApp() {
     try {
       let connected = false;
       
+      // Enhanced connection logic with better error handling
+      const connectWallet = async (walletObj, name) => {
+        try {
+          if (!walletObj) {
+            throw new Error(`${name} wallet not found`);
+          }
+          
+          // Try different connection methods
+          if (walletObj.connect) {
+            const resp = await walletObj.connect();
+            if (resp && resp.publicKey) {
+              return resp.publicKey.toString();
+            }
+          }
+          
+          // Fallback for wallets without connect method
+          if (walletObj.publicKey) {
+            return walletObj.publicKey.toString();
+          }
+          
+          throw new Error(`Failed to connect to ${name}`);
+        } catch (error) {
+          console.log(`Error connecting to ${name}:`, error);
+          return null;
+        }
+      };
+      
       // Try to connect based on wallet name
       switch (walletName) {
         case 'Phantom':
           if (window.solana?.isPhantom) {
-            const resp = await window.solana.connect();
-            if (resp.publicKey) {
-              setUserAddress(resp.publicKey.toString());
+            const address = await connectWallet(window.solana, 'Phantom');
+            if (address) {
+              setUserAddress(address);
               connected = true;
             }
           }
           break;
         case 'Solflare':
           if (window.solflare) {
-            const wallet = new Solflare();
-            await wallet.connect();
-            if (wallet.publicKey) {
-              setUserAddress(wallet.publicKey.toString());
-              connected = true;
+            try {
+              const wallet = new Solflare();
+              await wallet.connect();
+              if (wallet.publicKey) {
+                setUserAddress(wallet.publicKey.toString());
+                connected = true;
+              }
+            } catch (error) {
+              console.log('Solflare SDK connection failed, trying direct connection...');
+              const address = await connectWallet(window.solflare, 'Solflare');
+              if (address) {
+                setUserAddress(address);
+                connected = true;
+              }
             }
           }
           break;
         case 'Backpack':
           if (window.xnft?.solana) {
-            const resp = await window.xnft.solana.connect();
-            if (resp.publicKey) {
-              setUserAddress(resp.publicKey.toString());
+            const address = await connectWallet(window.xnft.solana, 'Backpack');
+            if (address) {
+              setUserAddress(address);
               connected = true;
             }
           }
           break;
         case 'Slope':
           if (window.slope) {
-            const resp = await window.slope.connect();
-            if (resp.publicKey) {
-              setUserAddress(resp.publicKey.toString());
+            const address = await connectWallet(window.slope, 'Slope');
+            if (address) {
+              setUserAddress(address);
               connected = true;
             }
           }
           break;
         case 'Glow':
           if (window.glow) {
-            const resp = await window.glow.connect();
-            if (resp.publicKey) {
-              setUserAddress(resp.publicKey.toString());
+            const address = await connectWallet(window.glow, 'Glow');
+            if (address) {
+              setUserAddress(address);
               connected = true;
             }
           }
           break;
         case 'Coinbase':
           if (window.coinbaseWalletSolana) {
-            const resp = await window.coinbaseWalletSolana.connect();
-            if (resp.publicKey) {
-              setUserAddress(resp.publicKey.toString());
+            const address = await connectWallet(window.coinbaseWalletSolana, 'Coinbase');
+            if (address) {
+              setUserAddress(address);
               connected = true;
             }
           }
@@ -273,38 +317,47 @@ function NFTVerificationApp() {
     }
   };
 
-  // Open wallet app via deep link
+  // Enhanced mobile deep linking with in-app browser support
   const openWalletApp = async (walletName) => {
     const userAgent = navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(userAgent);
     const isAndroid = /android/.test(userAgent);
+    const isTelegram = /telegram/i.test(userAgent);
+    const isInAppBrowser = /telegramwebapp|fb_iab|instagram|line|whatsapp|twitter|discord/i.test(userAgent);
     
     let appUrl = '';
     let fallbackUrl = '';
+    let deepLinkUrl = '';
     
-    // Set up deep links and fallback URLs
+    // Enhanced deep links and fallback URLs
     switch (walletName) {
       case 'Phantom':
+        deepLinkUrl = 'phantom://';
         appUrl = 'https://phantom.app/ul/browse/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/phantom/id1598432977' : 'https://play.google.com/store/apps/details?id=app.phantom';
         break;
       case 'Solflare':
+        deepLinkUrl = 'solflare://';
         appUrl = 'https://solflare.com/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/solflare/id1580902717' : 'https://play.google.com/store/apps/details?id=com.solflare.mobile';
         break;
       case 'Backpack':
+        deepLinkUrl = 'backpack://';
         appUrl = 'https://backpack.app/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/backpack/id6443944476' : 'https://play.google.com/store/apps/details?id=app.backpack';
         break;
       case 'Slope':
+        deepLinkUrl = 'slope://';
         appUrl = 'https://slope.finance/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/slope-wallet/id1574624530' : 'https://play.google.com/store/apps/details?id=com.slope.finance';
         break;
       case 'Glow':
+        deepLinkUrl = 'glow://';
         appUrl = 'https://glow.app/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/glow-wallet/id1635713293' : 'https://play.google.com/store/apps/details?id=com.glow.wallet';
         break;
       case 'Coinbase':
+        deepLinkUrl = 'coinbase://';
         appUrl = 'https://wallet.coinbase.com/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/coinbase-wallet/id1278383455' : 'https://play.google.com/store/apps/details?id=org.toshi';
         break;
@@ -313,22 +366,60 @@ function NFTVerificationApp() {
     updateStatus(`Opening ${walletName} app... Please approve the connection and return to this page.`, 'info');
     
     try {
-      const newWindow = window.open(appUrl, '_blank');
-      
-      setTimeout(() => {
-        if (newWindow && !newWindow.closed) {
-          updateStatus(`✅ ${walletName} app opened! Please approve the connection and return here.`, 'success');
+      // Handle in-app browser limitations
+      if (isInAppBrowser) {
+        updateStatus(`⚠️ In-app browser detected. Opening ${walletName} in external browser...`, 'info');
+        
+        // For in-app browsers, try to open in external browser
+        if (isTelegram && window.Telegram?.WebApp) {
+          // Use Telegram WebApp to open external browser
+          window.Telegram.WebApp.openTelegramLink(appUrl);
         } else {
-          console.log(`${walletName} app not found, trying fallback...`);
-          window.open(fallbackUrl, '_blank');
-          updateStatus(`${walletName} app not found. Please install it from the app store and try again.`, 'error');
-          setIsConnectingWallet(false);
+          // Fallback for other in-app browsers
+          window.open(appUrl, '_blank');
         }
+        
+        setTimeout(() => {
+          updateStatus(`✅ ${walletName} opened in external browser! Please approve the connection and return here.`, 'success');
+        }, 2000);
+        
+        return;
+      }
+      
+      // For regular mobile browsers, try deep link first
+      if (deepLinkUrl) {
+        try {
+          // Try deep link
+          window.location.href = deepLinkUrl;
+          
+          // Fallback to app URL after a delay
+          setTimeout(() => {
+            window.open(appUrl, '_blank');
+          }, 1000);
+          
+        } catch (error) {
+          console.log('Deep link failed, trying app URL...');
+          window.open(appUrl, '_blank');
+        }
+      } else {
+        window.open(appUrl, '_blank');
+      }
+      
+      // Check if app opened successfully
+      setTimeout(() => {
+        updateStatus(`✅ ${walletName} app opened! Please approve the connection and return here.`, 'success');
       }, 2000);
       
     } catch (error) {
       console.error(`Error opening ${walletName}:`, error);
-      window.location.href = appUrl;
+      
+      // Fallback to app store
+      updateStatus(`${walletName} app not found. Opening app store...`, 'info');
+      setTimeout(() => {
+        window.open(fallbackUrl, '_blank');
+        updateStatus(`${walletName} app not found. Please install it from the app store and try again.`, 'error');
+        setIsConnectingWallet(false);
+      }, 1000);
     }
   };
 
@@ -649,6 +740,48 @@ function NFTVerificationApp() {
 
   const statusClasses = getStatusClasses();
 
+  // Mobile-specific error handling and retry
+  const handleMobileError = (error, walletName) => {
+    console.error(`Mobile error with ${walletName}:`, error);
+    
+    let errorMessage = '';
+    if (error.message.includes('User rejected')) {
+      errorMessage = `❌ Connection cancelled by user. Please try again.`;
+    } else if (error.message.includes('Wallet not found')) {
+      errorMessage = `❌ ${walletName} wallet not found. Please install it first.`;
+    } else if (error.message.includes('Network error')) {
+      errorMessage = `❌ Network error. Please check your internet connection.`;
+    } else {
+      errorMessage = `❌ Failed to connect to ${walletName}. Please try again.`;
+    }
+    
+    updateStatus(errorMessage, 'error');
+    setIsConnectingWallet(false);
+  };
+
+  // Enhanced mobile retry mechanism
+  const retryMobileConnection = async (walletName) => {
+    updateStatus(`🔄 Retrying connection to ${walletName}...`, 'info');
+    setIsConnectingWallet(true);
+    
+    try {
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Try to detect if wallet is already connected
+      const isConnected = await detectMobileWalletConnection();
+      if (isConnected) {
+        return;
+      }
+      
+      // If not connected, try deep linking again
+      await openWalletApp(walletName);
+      
+    } catch (error) {
+      handleMobileError(error, walletName);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
       {/* Animated Background */}
@@ -753,8 +886,35 @@ function NFTVerificationApp() {
                       </svg>
                     </div>
                     <h3 className="text-xl font-bold text-white mb-2">Connecting Wallet</h3>
-                    <p className="text-gray-400">Please approve the connection in your wallet app and return to this page...</p>
-                    <div className="mt-4">
+                    <p className="text-gray-400 mb-4">Please approve the connection in your wallet app and return to this page...</p>
+                    
+                    {/* Enhanced Mobile Connection Instructions */}
+                    <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-4 mb-4 border border-blue-400/30">
+                      <div className="text-sm text-gray-300 space-y-2">
+                        <p>• Open your wallet app</p>
+                        <p>• Approve the connection request</p>
+                        <p>• Return to this page</p>
+                        <p>• Click "Check Connection" below</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <button
+                        onClick={async () => {
+                          updateStatus('🔍 Checking for wallet connection...', 'info');
+                          const isConnected = await detectMobileWalletConnection();
+                          if (!isConnected) {
+                            updateStatus('No wallet connection detected. Please try again.', 'info');
+                          }
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Check Connection
+                      </button>
+                      
                       <button
                         onClick={() => {
                           setIsConnectingWallet(false);
@@ -762,6 +922,9 @@ function NFTVerificationApp() {
                         }}
                         className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-300"
                       >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                         Cancel Connection
                       </button>
                     </div>
@@ -776,6 +939,43 @@ function NFTVerificationApp() {
                       <p className="text-gray-400">Select your preferred wallet to connect and verify NFT ownership</p>
                     </div>
                     
+                    {/* Enhanced Mobile Instructions */}
+                    <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-4 border border-blue-400/30">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <h4 className="text-white font-semibold">Mobile Connection Guide</h4>
+                      </div>
+                      <div className="text-sm text-gray-300 space-y-2">
+                        <p>• Select your wallet below</p>
+                        <p>• Your wallet app will open automatically</p>
+                        <p>• Approve the connection in your wallet</p>
+                        <p>• Return to this page when done</p>
+                      </div>
+                    </div>
+                    
+                    {/* Mobile Browser Warning */}
+                    {/telegramwebapp|fb_iab|instagram|line|whatsapp|twitter|discord/i.test(navigator.userAgent.toLowerCase()) && (
+                      <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-xl p-4 border border-yellow-400/30">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                          </div>
+                          <h5 className="text-yellow-300 font-semibold text-sm">In-App Browser Detected</h5>
+                        </div>
+                        <div className="text-xs text-yellow-200">
+                          <p>• Some wallet features may be limited</p>
+                          <p>• Consider opening in external browser for best experience</p>
+                          <p>• Deep linking may not work properly</p>
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Manual Check Button */}
                     <div className="text-center">
                       <button
@@ -786,108 +986,109 @@ function NFTVerificationApp() {
                             updateStatus('No wallet connection detected. Please select a wallet to connect.', 'info');
                           }
                         }}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300"
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105"
                       >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Check Connection
+                        Check Connection Status
                       </button>
                     </div>
                     
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {/* Enhanced Mobile Wallet Grid */}
+                    <div className="grid grid-cols-2 gap-4">
                       <button 
                         onClick={() => handleMobileWalletConnection('Phantom')} 
-                        className="group relative overflow-hidden bg-gradient-to-br from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-400/30 hover:border-purple-400/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/25"
+                        className="group relative overflow-hidden bg-gradient-to-br from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-purple-400/30 hover:border-purple-400/50 hover:scale-105 hover:shadow-xl hover:shadow-purple-500/25 active:scale-95"
                       >
                         <div className="flex flex-col items-center space-y-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-2xl">🟣</span>
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-3xl">🟣</span>
                           </div>
                           <div className="text-center">
                             <div className="font-bold text-lg">Phantom</div>
-                            <div className="text-sm text-purple-300">Solana</div>
+                            <div className="text-sm text-purple-300">Most Popular</div>
                           </div>
                         </div>
                       </button>
 
                       <button 
                         onClick={() => handleMobileWalletConnection('Solflare')} 
-                        className="group relative overflow-hidden bg-gradient-to-br from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-orange-400/30 hover:border-orange-400/50 hover:scale-105 hover:shadow-xl hover:shadow-orange-500/25"
+                        className="group relative overflow-hidden bg-gradient-to-br from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-orange-400/30 hover:border-orange-400/50 hover:scale-105 hover:shadow-xl hover:shadow-orange-500/25 active:scale-95"
                       >
                         <div className="flex flex-col items-center space-y-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-2xl">🟠</span>
+                          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-3xl">🟠</span>
                           </div>
                           <div className="text-center">
                             <div className="font-bold text-lg">Solflare</div>
-                            <div className="text-sm text-orange-300">Solana</div>
+                            <div className="text-sm text-orange-300">Fast & Secure</div>
                           </div>
                         </div>
                       </button>
 
                       <button 
                         onClick={() => handleMobileWalletConnection('Backpack')} 
-                        className="group relative overflow-hidden bg-gradient-to-br from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-400/30 hover:border-blue-400/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25"
+                        className="group relative overflow-hidden bg-gradient-to-br from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-400/30 hover:border-blue-400/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25 active:scale-95"
                       >
                         <div className="flex flex-col items-center space-y-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-2xl">🔵</span>
+                          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-3xl">🔵</span>
                           </div>
                           <div className="text-center">
                             <div className="font-bold text-lg">Backpack</div>
-                            <div className="text-sm text-blue-300">Solana</div>
+                            <div className="text-sm text-blue-300">Modern UI</div>
                           </div>
                         </div>
                       </button>
 
                       <button 
                         onClick={() => handleMobileWalletConnection('Slope')} 
-                        className="group relative overflow-hidden bg-gradient-to-br from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-green-400/30 hover:border-green-400/50 hover:scale-105 hover:shadow-xl hover:shadow-green-500/25"
+                        className="group relative overflow-hidden bg-gradient-to-br from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-green-400/30 hover:border-green-400/50 hover:scale-105 hover:shadow-xl hover:shadow-green-500/25 active:scale-95"
                       >
                         <div className="flex flex-col items-center space-y-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-2xl">🟢</span>
+                          <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-3xl">🟢</span>
                           </div>
                           <div className="text-center">
                             <div className="font-bold text-lg">Slope</div>
-                            <div className="text-sm text-green-300">Solana</div>
+                            <div className="text-sm text-green-300">User Friendly</div>
                           </div>
                         </div>
                       </button>
 
                       <button 
                         onClick={() => handleMobileWalletConnection('Glow')} 
-                        className="group relative overflow-hidden bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 hover:from-yellow-500/30 hover:to-yellow-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-yellow-400/30 hover:border-yellow-400/50 hover:scale-105 hover:shadow-xl hover:shadow-yellow-500/25"
+                        className="group relative overflow-hidden bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 hover:from-yellow-500/30 hover:to-yellow-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-yellow-400/30 hover:border-yellow-400/50 hover:scale-105 hover:shadow-xl hover:shadow-yellow-500/25 active:scale-95"
                       >
                         <div className="flex flex-col items-center space-y-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-2xl">🟡</span>
+                          <div className="w-16 h-16 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-3xl">🟡</span>
                           </div>
                           <div className="text-center">
                             <div className="font-bold text-lg">Glow</div>
-                            <div className="text-sm text-yellow-300">Solana</div>
+                            <div className="text-sm text-yellow-300">Simple</div>
                           </div>
                         </div>
                       </button>
 
                       <button 
                         onClick={() => handleMobileWalletConnection('Coinbase')} 
-                        className="group relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-500/30 hover:border-blue-500/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-600/25"
+                        className="group relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-500/30 hover:border-blue-500/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-600/25 active:scale-95"
                       >
                         <div className="flex flex-col items-center space-y-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-2xl">🔵</span>
+                          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-3xl">🔵</span>
                           </div>
                           <div className="text-center">
                             <div className="font-bold text-lg">Coinbase</div>
-                            <div className="text-sm text-blue-300">Solana</div>
+                            <div className="text-sm text-blue-300">Trusted</div>
                           </div>
                         </div>
                       </button>
                     </div>
                     
-                    {/* Install Wallet Option */}
+                    {/* Enhanced Install Wallet Option */}
                     <div className="text-center pt-4 border-t border-white/10">
                       <p className="text-gray-400 mb-4">Don't have a Solana wallet?</p>
                       <div className="flex flex-wrap justify-center gap-3">
