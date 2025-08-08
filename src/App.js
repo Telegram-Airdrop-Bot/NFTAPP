@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter, SolflareWalletAdapter, BackpackWalletAdapter, SlopeWalletAdapter, GlowWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { PhantomWalletAdapter, SolflareWalletAdapter, SlopeWalletAdapter, GlowWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { useWallet } from '@solana/wallet-adapter-react';
 import Solflare from '@solflare-wallet/sdk';
 import CONFIG from './config';
@@ -15,7 +15,6 @@ function App() {
     () => [
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter({ network: 'mainnet-beta' }),
-      new BackpackWalletAdapter(),
       new SlopeWalletAdapter(),
       new GlowWalletAdapter(),
     ],
@@ -174,7 +173,6 @@ function NFTVerificationApp() {
       // Check for connected wallets with enhanced detection
       connectedAddress = checkWallet(window.solana, 'Phantom') || 
                        checkWallet(window.solflare, 'Solflare') ||
-                       checkWallet(window.xnft?.solana, 'Backpack') ||
                        checkWallet(window.slope, 'Slope') ||
                        checkWallet(window.glow, 'Glow') ||
                        checkWallet(window.coinbaseWalletSolana, 'Coinbase');
@@ -183,7 +181,6 @@ function NFTVerificationApp() {
       if (connectedAddress) {
         if (window.solana?.publicKey?.toString() === connectedAddress) walletName = 'Phantom';
         else if (window.solflare?.publicKey?.toString() === connectedAddress) walletName = 'Solflare';
-        else if (window.xnft?.solana?.publicKey?.toString() === connectedAddress) walletName = 'Backpack';
         else if (window.slope?.publicKey?.toString() === connectedAddress) walletName = 'Slope';
         else if (window.glow?.publicKey?.toString() === connectedAddress) walletName = 'Glow';
         else if (window.coinbaseWalletSolana?.publicKey?.toString() === connectedAddress) walletName = 'Coinbase';
@@ -252,8 +249,6 @@ function NFTVerificationApp() {
             return typeof window.solana !== 'undefined' && window.solana?.isPhantom;
           case 'Solflare':
             return typeof window.solflare !== 'undefined';
-          case 'Backpack':
-            return typeof window.xnft !== 'undefined' && window.xnft?.solana;
           case 'Slope':
             return typeof window.slope !== 'undefined';
           case 'Glow':
@@ -300,15 +295,6 @@ function NFTVerificationApp() {
                 setUserAddress(address);
                 connected = true;
               }
-            }
-          }
-          break;
-        case 'Backpack':
-          if (window.xnft?.solana) {
-            const address = await connectWallet(window.xnft.solana, 'Backpack');
-            if (address) {
-              setUserAddress(address);
-              connected = true;
             }
           }
           break;
@@ -386,13 +372,6 @@ function NFTVerificationApp() {
         intentUrl = 'intent://solflare.com/#Intent;scheme=https;package=com.solflare.mobile;end';
         appUrl = 'https://solflare.com/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/solflare/id1580902717' : 'https://play.google.com/store/apps/details?id=com.solflare.mobile';
-        break;
-      case 'Backpack':
-        deepLinkUrl = 'backpack://';
-        universalLink = 'https://backpack.app/';
-        intentUrl = 'intent://backpack.app/#Intent;scheme=https;package=app.backpack;end';
-        appUrl = 'https://backpack.app/';
-        fallbackUrl = isIOS ? 'https://apps.apple.com/app/backpack/id6443944476' : 'https://play.google.com/store/apps/details?id=app.backpack';
         break;
       case 'Slope':
         deepLinkUrl = 'slope://';
@@ -615,27 +594,6 @@ function NFTVerificationApp() {
       }
       
       updateStatus(errorMessage, 'error');
-    }
-  };
-
-  const connectBackpack = async () => {
-    try {
-      if (typeof window.xnft === 'undefined') {
-        updateStatus('Backpack extension not found. Please install it from https://backpack.app.', 'error');
-        return;
-      }
-
-      if (!window.xnft.solana) {
-        updateStatus('Backpack extension not found. Please install it from https://backpack.app.', 'error');
-        return;
-      }
-
-      const resp = await window.xnft.solana.connect();
-      setUserAddress(resp.publicKey.toString());
-      showVerificationSection();
-      updateStatus('✅ Backpack wallet connected successfully!', 'success');
-    } catch (err) {
-      updateStatus('Backpack connection failed: ' + err.message, 'error');
     }
   };
 
@@ -1067,7 +1025,6 @@ function NFTVerificationApp() {
                           const walletUrls = {
                             'Phantom': 'phantom://',
                             'Solflare': 'solflare://',
-                            'Backpack': 'backpack://',
                             'Slope': 'slope://',
                             'Glow': 'glow://',
                             'Coinbase': 'coinbase://'
@@ -1218,21 +1175,6 @@ function NFTVerificationApp() {
                       </button>
 
                       <button 
-                        onClick={() => handleMobileWalletConnection('Backpack')} 
-                        className="group relative overflow-hidden bg-gradient-to-br from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-400/30 hover:border-blue-400/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25 active:scale-95"
-                      >
-                        <div className="flex flex-col items-center space-y-3">
-                          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-3xl">🔵</span>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-lg">Backpack</div>
-                            <div className="text-sm text-blue-300">Modern UI</div>
-                          </div>
-                        </div>
-                      </button>
-
-                      <button 
                         onClick={() => handleMobileWalletConnection('Slope')} 
                         className="group relative overflow-hidden bg-gradient-to-br from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-green-400/30 hover:border-green-400/50 hover:scale-105 hover:shadow-xl hover:shadow-green-500/25 active:scale-95"
                       >
@@ -1353,21 +1295,6 @@ function NFTVerificationApp() {
                           <div className="text-center">
                             <div className="font-bold text-lg">Solflare</div>
                             <div className="text-sm text-orange-300">Solana</div>
-                          </div>
-                        </div>
-                      </button>
-
-                      <button 
-                        onClick={connectBackpack} 
-                        className="group relative overflow-hidden bg-gradient-to-br from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 rounded-2xl p-6 text-white transition-all duration-300 border border-blue-400/30 hover:border-blue-400/50 hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25"
-                      >
-                        <div className="flex flex-col items-center space-y-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-2xl">🔵</span>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-lg">Backpack</div>
-                            <div className="text-sm text-blue-300">Solana</div>
                           </div>
                         </div>
                       </button>
