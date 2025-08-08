@@ -1,9 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { PhantomWalletAdapter, SolflareWalletAdapter, BackpackWalletAdapter, SlopeWalletAdapter, GlowWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { useWallet } from '@solana/wallet-adapter-react';
 import Solflare from '@solflare-wallet/sdk';
 import CONFIG from './config';
+import '@solana/wallet-adapter-react-ui/styles.css';
 
+// Main App Component with Wallet Adapter
 function App() {
-  const [userAddress, setUserAddress] = useState('');
+  const endpoint = 'https://api.mainnet-beta.solana.com';
+
+  const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter({ network: 'mainnet-beta' }),
+      new BackpackWalletAdapter(),
+      new SlopeWalletAdapter(),
+      new GlowWalletAdapter(),
+    ],
+    []
+  );
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} autoConnect={true}>
+        <WalletModalProvider>
+          <NFTVerificationApp />
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
+  );
+}
+
+// Main NFT Verification App Component
+function NFTVerificationApp() {
+  const { publicKey, connect, disconnect, connected, wallet } = useWallet();
   const [heliusApiKey, setHeliusApiKey] = useState('');
   const [status, setStatus] = useState({ message: 'Connect your wallet to verify NFT ownership', type: 'info' });
   const [showVerification, setShowVerification] = useState(false);
@@ -54,6 +86,16 @@ function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [tgId, isMobile]);
+
+  // Auto-connect when wallet adapter connects
+  useEffect(() => {
+    if (connected && publicKey) {
+      const address = publicKey.toString();
+      setUserAddress(address);
+      showVerificationSection();
+      updateStatus(`✅ ${wallet?.adapter?.name || 'Wallet'} connected successfully!`, 'success');
+    }
+  }, [connected, publicKey, wallet]);
 
   const loadConfig = async () => {
     try {
@@ -290,6 +332,7 @@ function App() {
     }
   };
 
+  // Enhanced wallet connection functions with Wallet Adapter integration
   const connectPhantom = async () => {
     try {
       console.log('Attempting to connect Phantom wallet...');
@@ -460,13 +503,15 @@ function App() {
   };
 
   const fetchAndDisplayNFTs = async () => {
-    if (!userAddress) return;
+    const address = publicKey ? publicKey.toString() : userAddress;
+    if (!address) return;
+    
     updateStatus('Fetching your NFT collection...', 'info');
     setNfts([]);
     setShowNFTs(true);
 
     try {
-      const url = `${REACT_APP_API_URL}/api/addresses/${userAddress}/nft-assets?api-key=${heliusApiKey}`;
+      const url = `${REACT_APP_API_URL}/api/addresses/${address}/nft-assets?api-key=${heliusApiKey}`;
       const res = await fetch(url);
       const nftData = await res.json();
 
@@ -496,12 +541,13 @@ function App() {
       return;
     }
 
-    if (!userAddress) {
+    const address = publicKey ? publicKey.toString() : userAddress;
+    if (!address) {
       updateStatus('❌ Missing wallet address! Please connect your wallet first.', 'error');
       return;
     }
 
-    console.log('Starting verification with:', { tgId: currentTgId, userAddress });
+    console.log('Starting verification with:', { tgId: currentTgId, userAddress: address });
     updateStatus('Verifying NFT ownership...', 'info');
 
     try {
@@ -511,7 +557,7 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          wallet_address: userAddress,
+          wallet_address: address,
           tg_id: currentTgId,
           collection_id: 'j7qeFNnpWTbaf5g9sMCxP2zfKrH5QFgE56SuYjQDQi1'  // Meta Betties collection ID
         })
@@ -875,6 +921,20 @@ function App() {
                       <h3 className="text-2xl font-bold text-white mb-2">Choose Your Solana Wallet</h3>
                       <p className="text-gray-400">Select your preferred wallet to connect and verify NFT ownership</p>
                     </div>
+                    
+                    {/* Enhanced Wallet Adapter Button */}
+                    <div className="text-center mb-6">
+                      <button
+                        onClick={() => connect()}
+                        className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-purple-500/25"
+                      >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Connect Wallet (Recommended)
+                      </button>
+                    </div>
+                    
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                       <button 
                         onClick={connectPhantom} 
@@ -985,7 +1045,8 @@ function App() {
                   <div className="bg-black/20 rounded-xl p-4 mb-6 border border-white/10">
                     <div className="text-sm text-gray-400 mb-2">Wallet Address</div>
                     <div className="font-mono text-white break-all text-lg">
-                      {userAddress ? `${userAddress.substring(0, 8)}...${userAddress.substring(userAddress.length - 8)}` : ''}
+                      {publicKey ? `${publicKey.toString().substring(0, 8)}...${publicKey.toString().substring(publicKey.toString().length - 8)}` : 
+                       userAddress ? `${userAddress.substring(0, 8)}...${userAddress.substring(userAddress.length - 8)}` : ''}
                     </div>
                   </div>
                   <button 
