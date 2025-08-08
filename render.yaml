@@ -2,7 +2,7 @@ services:
   - type: web
     name: meta-betties-frontend
     env: node
-    buildCommand: npm ci --legacy-peer-deps && npm run build
+    buildCommand: npm ci --legacy-peer-deps && GENERATE_SOURCEMAP=false npm run build
     startCommand: npm start
     envVars:
       - key: REACT_APP_API_URL
@@ -11,4 +11,3 @@ services:
         value: "18.17.0"
     healthCheckPath: /
     autoDeploy: true 
-
