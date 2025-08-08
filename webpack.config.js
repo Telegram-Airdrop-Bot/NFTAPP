@@ -13,6 +13,12 @@ module.exports = {
       https: require.resolve('https-browserify'),
       os: require.resolve('os-browserify/browser'),
       url: require.resolve('url'),
+      path: require.resolve('path-browserify'),
+      querystring: require.resolve('querystring-es3'),
+      fs: false,
+      net: false,
+      tls: false,
+      child_process: false,
     },
   },
   plugins: [
@@ -20,5 +26,18 @@ module.exports = {
       Buffer: ['buffer', 'Buffer'],
       process: 'process/browser',
     }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+    }),
   ],
+  module: {
+    rules: [
+      {
+        test: /\.m?js$/,
+        resolve: {
+          fullySpecified: false,
+        },
+      },
+    ],
+  },
 }; 
