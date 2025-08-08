@@ -115,21 +115,24 @@ function NFTVerificationApp() {
     setStatus({ message, type });
   };
 
-  // Enhanced mobile detection with in-app browser support
+  // Enhanced mobile detection with better flow
   const detectMobileDevice = () => {
     const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isInAppBrowser = /TelegramWebApp|FB_IAB|Instagram|Line|WhatsApp|Twitter|Discord/i.test(navigator.userAgent);
     const isStandalone = window.navigator.standalone === true;
+    const isMobileViewport = window.innerWidth <= 768;
     
-    const isMobile = mobileCheck || isInAppBrowser || isStandalone;
+    const isMobile = mobileCheck || isInAppBrowser || isStandalone || isMobileViewport;
     setIsMobile(isMobile);
     
     console.log('Mobile detection:', {
       mobileCheck,
       isInAppBrowser,
       isStandalone,
+      isMobileViewport,
       isMobile,
-      userAgent: navigator.userAgent
+      userAgent: navigator.userAgent,
+      viewport: window.innerWidth
     });
     
     // Handle in-app browser limitations
@@ -199,7 +202,7 @@ function NFTVerificationApp() {
     }
   };
 
-  // Enhanced mobile wallet connection handler
+  // Enhanced mobile wallet connection with better flow
   const handleMobileWalletConnection = async (walletName) => {
     console.log(`Connecting to ${walletName} on mobile...`);
     setIsConnectingWallet(true);
@@ -309,15 +312,17 @@ function NFTVerificationApp() {
         updateStatus(`✅ ${walletName} wallet connected successfully!`, 'success');
       } else {
         // If direct connection fails, try deep linking
+        updateStatus(`Opening ${walletName} app... Please approve the connection and return to this page.`, 'info');
         await openWalletApp(walletName);
       }
     } catch (error) {
       console.log(`${walletName} direct connection failed, trying deep link...`, error);
+      updateStatus(`Opening ${walletName} app... Please approve the connection and return to this page.`, 'info');
       await openWalletApp(walletName);
     }
   };
 
-  // Enhanced mobile deep linking with in-app browser support
+  // Enhanced mobile deep linking with better flow
   const openWalletApp = async (walletName) => {
     const userAgent = navigator.userAgent.toLowerCase();
     const isIOS = /iphone|ipad|ipod/.test(userAgent);
@@ -895,6 +900,7 @@ function NFTVerificationApp() {
                         <p>• Approve the connection request</p>
                         <p>• Return to this page</p>
                         <p>• Click "Check Connection" below</p>
+                        <p>• If it doesn't work, try "Retry Connection"</p>
                       </div>
                     </div>
                     
@@ -954,6 +960,7 @@ function NFTVerificationApp() {
                         <p>• Your wallet app will open automatically</p>
                         <p>• Approve the connection in your wallet</p>
                         <p>• Return to this page when done</p>
+                        <p>• Click "Check Connection" if needed</p>
                       </div>
                     </div>
                     
