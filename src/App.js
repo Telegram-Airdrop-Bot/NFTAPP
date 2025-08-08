@@ -341,42 +341,49 @@ function NFTVerificationApp() {
     let fallbackUrl = '';
     let deepLinkUrl = '';
     let universalLink = '';
+    let intentUrl = '';
     
-    // Enhanced deep links and fallback URLs with universal links
+    // Enhanced deep links and fallback URLs with Android intents
     switch (walletName) {
       case 'Phantom':
         deepLinkUrl = 'phantom://';
         universalLink = 'https://phantom.app/ul/browse/';
+        intentUrl = 'intent://phantom.app/ul/browse/#Intent;scheme=https;package=app.phantom;end';
         appUrl = 'https://phantom.app/ul/browse/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/phantom/id1598432977' : 'https://play.google.com/store/apps/details?id=app.phantom';
         break;
       case 'Solflare':
         deepLinkUrl = 'solflare://';
         universalLink = 'https://solflare.com/';
+        intentUrl = 'intent://solflare.com/#Intent;scheme=https;package=com.solflare.mobile;end';
         appUrl = 'https://solflare.com/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/solflare/id1580902717' : 'https://play.google.com/store/apps/details?id=com.solflare.mobile';
         break;
       case 'Backpack':
         deepLinkUrl = 'backpack://';
         universalLink = 'https://backpack.app/';
+        intentUrl = 'intent://backpack.app/#Intent;scheme=https;package=app.backpack;end';
         appUrl = 'https://backpack.app/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/backpack/id6443944476' : 'https://play.google.com/store/apps/details?id=app.backpack';
         break;
       case 'Slope':
         deepLinkUrl = 'slope://';
         universalLink = 'https://slope.finance/';
+        intentUrl = 'intent://slope.finance/#Intent;scheme=https;package=com.slope.finance;end';
         appUrl = 'https://slope.finance/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/slope-wallet/id1574624530' : 'https://play.google.com/store/apps/details?id=com.slope.finance';
         break;
       case 'Glow':
         deepLinkUrl = 'glow://';
         universalLink = 'https://glow.app/';
+        intentUrl = 'intent://glow.app/#Intent;scheme=https;package=com.glow.wallet;end';
         appUrl = 'https://glow.app/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/glow-wallet/id1635713293' : 'https://play.google.com/store/apps/details?id=com.glow.wallet';
         break;
       case 'Coinbase':
         deepLinkUrl = 'coinbase://';
         universalLink = 'https://wallet.coinbase.com/';
+        intentUrl = 'intent://wallet.coinbase.com/#Intent;scheme=https;package=org.toshi;end';
         appUrl = 'https://wallet.coinbase.com/';
         fallbackUrl = isIOS ? 'https://apps.apple.com/app/coinbase-wallet/id1278383455' : 'https://play.google.com/store/apps/details?id=org.toshi';
         break;
@@ -408,8 +415,28 @@ function NFTVerificationApp() {
       // For regular mobile browsers, try multiple methods
       let opened = false;
       
-      // Method 1: Try universal link first (works better on iOS)
-      if (universalLink) {
+      // Method 1: Try Android intent (works best on Android)
+      if (isAndroid && intentUrl) {
+        try {
+          console.log(`Trying Android intent: ${intentUrl}`);
+          window.location.href = intentUrl;
+          opened = true;
+          
+          // Fallback to deep link after a delay
+          setTimeout(() => {
+            if (deepLinkUrl) {
+              console.log(`Trying deep link: ${deepLinkUrl}`);
+              window.location.href = deepLinkUrl;
+            }
+          }, 1000);
+          
+        } catch (error) {
+          console.log('Android intent failed:', error);
+        }
+      }
+      
+      // Method 2: Try universal link (works better on iOS)
+      if (!opened && universalLink) {
         try {
           console.log(`Trying universal link: ${universalLink}`);
           window.location.href = universalLink;
@@ -428,7 +455,7 @@ function NFTVerificationApp() {
         }
       }
       
-      // Method 2: Try deep link if universal link didn't work
+      // Method 3: Try deep link if other methods didn't work
       if (!opened && deepLinkUrl) {
         try {
           console.log(`Trying deep link: ${deepLinkUrl}`);
@@ -445,7 +472,7 @@ function NFTVerificationApp() {
         }
       }
       
-      // Method 3: Fallback to app URL
+      // Method 4: Fallback to app URL
       if (!opened) {
         console.log(`Trying app URL: ${appUrl}`);
         window.open(appUrl, '_blank');
@@ -944,6 +971,14 @@ function NFTVerificationApp() {
                         <p>• Click "Check Connection" below</p>
                         <p>• If it doesn't work, try "Retry Connection"</p>
                         <p>• If no request appears, open wallet manually and check</p>
+                        {/android/i.test(navigator.userAgent) && (
+                          <>
+                            <p className="text-yellow-300 font-medium">Android Tips:</p>
+                            <p>• Check wallet app notifications</p>
+                            <p>• Try opening wallet app manually</p>
+                            <p>• Look for "Connect" or "Approve" buttons</p>
+                          </>
+                        )}
                       </div>
                     </div>
                     
@@ -1021,6 +1056,14 @@ function NFTVerificationApp() {
                         <p>• Return to this page when done</p>
                         <p>• Click "Check Connection" if needed</p>
                         <p>• If no request appears, try opening wallet manually</p>
+                        {/android/i.test(navigator.userAgent) && (
+                          <>
+                            <p className="text-yellow-300 font-medium">Android Users:</p>
+                            <p>• If wallet doesn't open, try "Retry Connection"</p>
+                            <p>• You may need to manually open your wallet app</p>
+                            <p>• Check for connection requests in wallet notifications</p>
+                          </>
+                        )}
                       </div>
                     </div>
                     
