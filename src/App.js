@@ -71,6 +71,90 @@ function NFTVerificationApp() {
       updateStatus('✅ Telegram ID detected. Please connect your wallet to verify NFT ownership.', 'info');
     }
 
+    // Enhanced connection recovery for automatic return from Phantom
+    const checkPendingConnection = async () => {
+      const pendingWallet = localStorage.getItem('wallet_connection_pending');
+      const connectionTimestamp = localStorage.getItem('connection_timestamp');
+      
+      // Only process recent connection attempts (within last 5 minutes)
+      const isRecentConnection = connectionTimestamp && 
+        (Date.now() - parseInt(connectionTimestamp) < 5 * 60 * 1000);
+
+      if (pendingWallet && isRecentConnection) {
+        console.log('Detected pending wallet connection:', pendingWallet);
+
+        // Clean up localStorage
+        localStorage.removeItem('wallet_connection_pending');
+        localStorage.removeItem('connection_timestamp');
+
+        if (pendingWallet === 'phantom') {
+          // Try multiple times to connect to Phantom
+          let attempts = 0;
+          const maxAttempts = 3;
+          
+          const tryConnect = async () => {
+            try {
+              const provider = window.phantom?.solana || window.solana;
+              
+              if (provider?.isPhantom) {
+                console.log('Attempting to recover Phantom connection...');
+                const resp = await provider.connect();
+                const publicKey = resp.publicKey.toString();
+                console.log('Phantom connection recovered:', publicKey);
+                
+                // Store successful connection
+                localStorage.setItem('phantom_connected_key', publicKey);
+                localStorage.setItem('last_connected_wallet', 'phantom');
+                
+                setUserAddress(publicKey);
+                showVerificationSection();
+                updateStatus('✅ Phantom wallet connected successfully! You can now verify your NFT ownership.', 'success');
+                return true;
+              }
+              return false;
+            } catch (err) {
+              console.log(`Connection attempt ${attempts + 1} failed:`, err);
+              return false;
+            }
+          };
+
+          const attemptConnection = async () => {
+            if (attempts < maxAttempts) {
+              attempts++;
+              const success = await tryConnect();
+              
+              if (!success && attempts < maxAttempts) {
+                // Wait longer between each attempt
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+                return attemptConnection();
+              }
+              
+              if (!success && attempts === maxAttempts) {
+                console.error('Failed to recover Phantom connection after multiple attempts');
+                updateStatus('❌ Could not connect to Phantom. Please try again.', 'error');
+              }
+            }
+          };
+
+          // Initial delay to let wallet inject
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await attemptConnection();
+        }
+      }
+      
+      // Check for already connected wallet
+      const lastConnectedWallet = localStorage.getItem('last_connected_wallet');
+      const connectedKey = localStorage.getItem('phantom_connected_key');
+      
+      if (lastConnectedWallet === 'phantom' && connectedKey && !userAddress) {
+        setUserAddress(connectedKey);
+        showVerificationSection();
+        updateStatus('✅ Wallet connection restored! You can now verify your NFT ownership.', 'success');
+      }
+    };
+
+    checkPendingConnection();
+
     // Add page visibility listener for mobile wallet detection
     const handleVisibilityChange = () => {
       if (!document.hidden && isMobile) {
@@ -409,12 +493,68 @@ function NFTVerificationApp() {
     }
   };
 
-  // Enhanced wallet connection functions with Wallet Adapter integration
+  // Enhanced Phantom wallet connection with automatic return flow
   const connectPhantom = async () => {
     try {
       console.log('Attempting to connect Phantom wallet...');
       updateStatus('Connecting to Phantom wallet...', 'info');
 
+      // Check if we're on mobile and handle appropriately
+      if (isMobile) {
+        console.log('Mobile device detected for Phantom connection');
+        
+        // Try to detect if Phantom is already injected
+        if (window.phantom?.solana?.isPhantom || window.solana?.isPhantom) {
+          console.log('Phantom detected in mobile environment');
+          try {
+            // Try both phantom.solana and window.solana
+            const provider = window.phantom?.solana || window.solana;
+            const resp = await provider.connect();
+            const publicKey = resp.publicKey.toString();
+            console.log('Phantom mobile connection successful:', publicKey);
+            
+            // Store the connected public key in localStorage
+            localStorage.setItem('phantom_connected_key', publicKey);
+            localStorage.setItem('last_connected_wallet', 'phantom');
+            
+            setUserAddress(publicKey);
+            showVerificationSection();
+            updateStatus('✅ Phantom wallet connected successfully!', 'success');
+            return;
+          } catch (mobileErr) {
+            console.log('Direct mobile connection failed, trying deep link:', mobileErr);
+            // If direct connection fails, use Phantom's mobile protocol
+            const currentUrl = window.location.href;
+            const encodedUrl = encodeURIComponent(currentUrl);
+            
+            // Use Phantom's connect protocol
+            const phantomConnectUrl = `https://phantom.app/ul/v1/connect?app_url=${encodedUrl}&redirect_url=${encodedUrl}`;
+            
+            // Store attempt info in localStorage
+            localStorage.setItem('wallet_connection_pending', 'phantom');
+            localStorage.setItem('connection_timestamp', Date.now().toString());
+            
+            // Redirect to Phantom
+            window.location.href = phantomConnectUrl;
+            return;
+          }
+        } else {
+          // If Phantom isn't injected, use connect protocol
+          const currentUrl = window.location.href;
+          const encodedUrl = encodeURIComponent(currentUrl);
+          const phantomConnectUrl = `https://phantom.app/ul/v1/connect?app_url=${encodedUrl}&redirect_url=${encodedUrl}`;
+          
+          // Store attempt info
+          localStorage.setItem('wallet_connection_pending', 'phantom');
+          localStorage.setItem('connection_timestamp', Date.now().toString());
+          
+          // Redirect to Phantom
+          window.location.href = phantomConnectUrl;
+          return;
+        }
+      }
+
+      // Desktop flow
       if (typeof window.solana === 'undefined') {
         updateStatus('❌ Phantom extension not found. Please install it from https://phantom.app.', 'error');
         return;
@@ -902,40 +1042,6 @@ function NFTVerificationApp() {
                       <p className="text-gray-400">Select your preferred wallet to connect and verify NFT ownership</p>
                     </div>
                     {/* Quick open inside wallet app (avoids store pages) */}
-                    <div className="flex flex-wrap justify-center gap-3">
-                      <button
-                        onClick={() => openWalletApp('Phantom')}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300"
-                      >
-                        <span className="mr-2">🟣</span>
-                        Open in Phantom
-                      </button>
-                      <button
-                        onClick={() => openWalletApp('Solflare')}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
-                      >
-                        <span className="mr-2">🟠</span>
-                        Open in Solflare
-                      </button>
-                    </div>
-                    
-                    {/* Enhanced Mobile Instructions */}
-                    <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-4 border border-blue-400/30">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <h4 className="text-white font-semibold">Mobile Connection Guide</h4>
-                      </div>
-                      <div className="text-sm text-gray-300 space-y-2">
-                        <p>• Select your wallet below</p>
-                        <p>• Your wallet app will open automatically</p>
-                        <p>• Approve the connection in your wallet</p>
-                        <p>• Return to this page when done</p>
-                      </div>
-                    </div>
                     
                     {/* Enhanced Mobile Browser Warning with Action Button */}
                     {/telegramwebapp|fb_iab|instagram|line|whatsapp|twitter|discord/i.test(navigator.userAgent.toLowerCase()) && (
