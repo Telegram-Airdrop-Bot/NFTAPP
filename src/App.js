@@ -1156,30 +1156,7 @@ function NFTVerificationApp() {
                       </button>
                     </div>
                     
-                    {/* Enhanced Install Wallet Option */}
-                    <div className="text-center pt-4 border-t border-white/10">
-                      <p className="text-gray-400 mb-4">Don't have a Solana wallet?</p>
-                      <div className="flex flex-wrap justify-center gap-3">
-                        <a 
-                          href="https://phantom.app/" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300"
-                        >
-                          <span className="mr-2">🟣</span>
-                          Install Phantom
-                        </a>
-                        <a 
-                          href="https://solflare.com/" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
-                        >
-                          <span className="mr-2">🟠</span>
-                          Install Solflare
-                        </a>
-                      </div>
-                    </div>
+
                   </div>
                 )}
 
