@@ -59,28 +59,12 @@ function App() {
     try {
       const response = await fetch(`${REACT_APP_API_URL}/api/config`);
       const config = await response.json();
-      
-      console.log('Config loaded:', config);
-      
-      if (config.api_key_status === 'missing') {
-        updateStatus('❌ API configuration error: Helius API key is missing. Please check server setup.', 'error');
-        console.error('Helius API key missing from server configuration');
-        return;
-      }
-      
-      if (!config.helius_api_key || config.helius_api_key.length < 10) {
-        updateStatus('❌ API configuration error: Invalid Helius API key. Please check server setup.', 'error');
-        console.error('Invalid Helius API key:', config.helius_api_key);
-        return;
-      }
-      
       setHeliusApiKey(config.helius_api_key);
-      console.log('Helius API key loaded successfully, length:', config.helius_api_key.length);
-      updateStatus('✅ API configuration loaded successfully. Ready to verify NFT ownership.', 'success');
-      
+      if (!config.helius_api_key) {
+        updateStatus('API configuration not found. Please check server setup.', 'error');
+      }
     } catch (error) {
-      console.error('Failed to load configuration:', error);
-      updateStatus('❌ Failed to load configuration: ' + error.message, 'error');
+      updateStatus('Failed to load configuration: ' + error.message, 'error');
     }
   };
 
@@ -477,38 +461,14 @@ function App() {
 
   const fetchAndDisplayNFTs = async () => {
     if (!userAddress) return;
-    
-    if (!heliusApiKey || heliusApiKey.length < 10) {
-      updateStatus('❌ API key not configured. Please refresh the page or contact support.', 'error');
-      return;
-    }
-    
     updateStatus('Fetching your NFT collection...', 'info');
     setNfts([]);
     setShowNFTs(true);
 
     try {
       const url = `${REACT_APP_API_URL}/api/addresses/${userAddress}/nft-assets?api-key=${heliusApiKey}`;
-      console.log('Fetching NFTs from:', url.substring(0, 50) + '...');
-      
       const res = await fetch(url);
-      console.log('NFT fetch response status:', res.status);
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error('NFT fetch error:', errorData);
-        
-        if (res.status === 400) {
-          throw new Error(errorData.details || 'Invalid API key or request parameters');
-        } else if (res.status === 500) {
-          throw new Error(errorData.details || 'Server error while fetching NFTs');
-        } else {
-          throw new Error(`Failed to fetch NFTs: ${res.status} ${res.statusText}`);
-        }
-      }
-      
       const nftData = await res.json();
-      console.log('NFT data received:', nftData);
 
       if (nftData && nftData.length > 0) {
         setNfts(nftData);
@@ -521,20 +481,9 @@ function App() {
         updateStatus('No NFTs found in your wallet.', 'info');
       }
     } catch (e) {
-      console.error('Error fetching NFTs:', e);
       setNfts([]);
       setNftCount(0);
-      
-      let errorMessage = 'Failed to fetch NFTs: ' + e.message;
-      if (e.message.includes('Invalid API key')) {
-        errorMessage = '❌ API configuration error. Please refresh the page or contact support.';
-      } else if (e.message.includes('Server error')) {
-        errorMessage = '❌ Server error while fetching NFTs. Please try again later.';
-      } else if (e.message.includes('Failed to fetch')) {
-        errorMessage = '❌ Network error. Please check your internet connection and try again.';
-      }
-      
-      updateStatus(errorMessage, 'error');
+      updateStatus('Failed to fetch NFTs: ' + e.message, 'error');
       throw e; // Re-throw so verification function can handle it
     }
   };
