@@ -12,14 +12,15 @@
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
-    "@solana-mobile/wallet-adapter-mobile": "^0.4.0",
     "@solana/web3.js": "^1.98.4",
+    "@solana-mobile/wallet-adapter-mobile": "1.0.1",
     "@solflare-wallet/sdk": "^1.4.2",
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
     "ajv": "^8.12.0",
     "buffer": "^6.0.3",
+    "cross-env": "^7.0.3",
     "crypto-browserify": "^3.12.1",
     "process": "^0.11.10",
     "react": "^18.2.0",
@@ -33,6 +34,7 @@
   "scripts": {
     "start": "serve -s build -l $PORT",
     "build": "cross-env GENERATE_SOURCEMAP=false react-app-rewired build",
+    "build:render": "GENERATE_SOURCEMAP=false react-app-rewired build",
     "dev": "react-app-rewired start",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject"
@@ -57,7 +59,6 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.14",
-    "cross-env": "^7.0.3",
     "postcss": "^8.4.24",
     "react-app-rewired": "^2.2.1",
     "tailwindcss": "^3.3.0"
