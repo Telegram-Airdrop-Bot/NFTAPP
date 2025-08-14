@@ -1,0 +1,20 @@
+[build]
+  command = "npm run build"
+  publish = "build"
+
+[build.environment]
+  REACT_APP_API_URL = "https://api-server-wcjc.onrender.com"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production.environment]
+  REACT_APP_API_URL = "https://api-server-wcjc.onrender.com"
+
+[context.deploy-preview.environment]
+  REACT_APP_API_URL = "https://api-server-wcjc.onrender.com"
+
+[context.branch-deploy.environment]
+  REACT_APP_API_URL = "https://api-server-wcjc.onrender.com" 
