@@ -3,11 +3,18 @@ services:
     name: meta-betties-frontend
     env: node
     buildCommand: |
+      echo "=== Starting Clean Build Process ==="
       npm cache clean --force
+      npm cache verify
       rm -rf node_modules package-lock.json
-      npm ci --legacy-peer-deps
-      npm install @solana-mobile/wallet-adapter-mobile@1.0.1 --save --legacy-peer-deps
-      npm install cross-env --save --legacy-peer-deps
+      rm -rf ~/.npm
+      echo "=== Installing Dependencies ==="
+      npm install --no-package-lock --legacy-peer-deps
+      echo "=== Installing Mobile Adapter ==="
+      npm install @solana-mobile/wallet-adapter-mobile@1.0.1 --save --no-package-lock --legacy-peer-deps
+      echo "=== Installing Cross-env ==="
+      npm install cross-env --save --no-package-lock --legacy-peer-deps
+      echo "=== Building Application ==="
       npm run build:render
     startCommand: npm start
     envVars:
@@ -15,5 +22,7 @@ services:
         value: https://api-server-wcjc.onrender.com
       - key: NODE_VERSION
         value: "18.17.0"
+      - key: NPM_CONFIG_CACHE
+        value: "/tmp/.npm"
     healthCheckPath: /
     autoDeploy: true 

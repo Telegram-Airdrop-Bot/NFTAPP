@@ -1,0 +1,146 @@
+CORS ERROR FIX GUIDE
+====================
+
+এই CORS error fix করার জন্য API server redeploy করতে হবে।
+
+ERROR DETAILS
+-------------
+Error: Access to fetch at 'https://api-server-wcjc.onrender.com/api/config' 
+from origin 'https://admin-q2j7.onrender.com' has been blocked by CORS policy
+
+CAUSE
+-----
+API server-এ CORS configuration properly set করা ছিল না।
+
+SOLUTION
+--------
+
+STEP 1: API SERVER CODE UPDATED
+-------------------------------
+✅ api-server/api_server.py file update করেছি:
+- Specific origins allow করেছি
+- Better CORS headers add করেছি
+- OPTIONS handler add করেছি
+- All endpoints-এ CORS headers add করেছি
+
+STEP 2: REDEPLOY API SERVER
+---------------------------
+
+2.1 GitHub-এ code push করুন:
+```bash
+cd api-server
+git add .
+git commit -m "Fix CORS configuration for frontend access"
+git push origin main
+```
+
+2.2 Render Dashboard-এ যান:
+- https://dashboard.render.com
+- আপনার API server service খুলুন
+- "Manual Deploy" button click করুন
+
+2.3 Wait for deployment:
+- Build complete হওয়া পর্যন্ত wait করুন
+- Logs check করুন errors আছে কিনা
+
+STEP 3: TEST CORS FIX
+---------------------
+
+3.1 Test API directly:
+```bash
+curl -H "Origin: https://admin-q2j7.onrender.com" \
+     -H "Access-Control-Request-Method: GET" \
+     -H "Access-Control-Request-Headers: Content-Type" \
+     -X OPTIONS \
+     https://api-server-wcjc.onrender.com/api/config
+```
+
+3.2 Test from browser:
+- Browser-এ https://admin-q2j7.onrender.com যান
+- Developer Tools খুলুন (F12)
+- Console tab-এ check করুন CORS error gone কিনা
+
+STEP 4: VERIFY ALL ENDPOINTS
+----------------------------
+
+4.1 Test config endpoint:
+```bash
+curl https://api-server-wcjc.onrender.com/api/config
+```
+
+4.2 Test verify endpoint:
+```bash
+curl -X POST https://api-server-wcjc.onrender.com/api/verify-nft \
+     -H "Content-Type: application/json" \
+     -d '{"wallet_address":"test","tg_id":"123"}'
+```
+
+4.3 Test NFT assets endpoint:
+```bash
+curl "https://api-server-wcjc.onrender.com/api/addresses/test/nft-assets?api-key=test"
+```
+
+CHANGES MADE
+------------
+
+1. **CORS Configuration Updated:**
+   - Specific origins allow করেছি
+   - Your frontend URL add করেছি
+   - Local development URLs add করেছি
+
+2. **Headers Added:**
+   - Access-Control-Allow-Origin: *
+   - Access-Control-Allow-Headers: Content-Type,Authorization,X-Requested-With
+   - Access-Control-Allow-Methods: GET,POST,OPTIONS
+   - Access-Control-Allow-Credentials: true
+   - Access-Control-Max-Age: 3600
+
+3. **OPTIONS Handler Added:**
+   - Preflight requests handle করবে
+   - All endpoints-এ OPTIONS support
+
+4. **All Endpoints Updated:**
+   - /api/config
+   - /api/verify-nft
+   - /api/addresses/<wallet>/nft-assets
+
+ALLOWED ORIGINS
+---------------
+✅ https://admin-q2j7.onrender.com
+✅ https://meta-betties-frontend.onrender.com
+✅ https://meta-betties-frontend-*.onrender.com
+✅ http://localhost:3000
+✅ http://localhost:3001
+✅ http://127.0.0.1:3000
+✅ http://127.0.0.1:3001
+
+TROUBLESHOOTING
+---------------
+
+Problem 1: Still getting CORS error
+Solution:
+- API server redeploy করুন
+- Browser cache clear করুন
+- Check if deployment successful
+
+Problem 2: API server not responding
+Solution:
+- Render logs check করুন
+- Environment variables verify করুন
+- Restart deployment
+
+Problem 3: Frontend still can't connect
+Solution:
+- Frontend URL verify করুন
+- API URL verify করুন
+- Network tab-এ check করুন
+
+FINAL TEST
+----------
+
+1. Frontend-এ যান
+2. Wallet connect করুন
+3. NFT verification try করুন
+4. Console-এ errors check করুন
+
+CORS error fix হয়ে যাওয়া উচিত! 🚀 

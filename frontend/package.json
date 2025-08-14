@@ -34,6 +34,7 @@
     "start": "serve -s build -l $PORT",
     "build": "cross-env GENERATE_SOURCEMAP=false react-app-rewired build",
     "build:render": "GENERATE_SOURCEMAP=false react-app-rewired build",
+    "build:yarn": "yarn install && yarn add @solana-mobile/wallet-adapter-mobile@1.0.1 && GENERATE_SOURCEMAP=false react-app-rewired build",
     "dev": "react-app-rewired start",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject"

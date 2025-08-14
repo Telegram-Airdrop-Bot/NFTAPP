@@ -1,0 +1,283 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #7c3aed, #db2777);
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(139, 92, 246, 0.3);
+    color: white;
+  }
+}
+
+@layer components {
+  /* Glass Effect */
+  .glass-effect {
+    @apply backdrop-blur-xl bg-white/5 border border-white/10;
+  }
+
+  /* Gradient Background */
+  .gradient-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+
+  /* Wallet Button Effects */
+  .wallet-btn {
+    @apply relative overflow-hidden transition-all duration-300;
+  }
+
+  .wallet-btn::before {
+    content: '';
+    @apply absolute top-0 left-[-100%] w-full h-full;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    @apply transition-all duration-500;
+  }
+
+  .wallet-btn:hover::before {
+    @apply left-[100%];
+  }
+
+  .wallet-btn:hover {
+    @apply -translate-y-1 shadow-2xl;
+  }
+
+  /* NFT Card Effects */
+  .nft-card {
+    @apply transition-all duration-300 relative overflow-hidden;
+  }
+
+  .nft-card::before {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1));
+    @apply opacity-0 transition-opacity duration-300;
+  }
+
+  .nft-card:hover::before {
+    @apply opacity-100;
+  }
+
+  .nft-card:hover {
+    @apply -translate-y-2 scale-105 shadow-2xl;
+  }
+
+  /* Loading Spinner */
+  .loading-spinner {
+    @apply w-10 h-10 border-4 border-white/10 border-l-purple-500 rounded-full;
+    animation: spin 1s linear infinite;
+  }
+
+  /* Text Gradients */
+  .text-gradient {
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Border Gradients */
+  .border-gradient {
+    border: 2px solid transparent;
+    background: linear-gradient(white, white) padding-box,
+                linear-gradient(135deg, #8b5cf6, #ec4899) border-box;
+  }
+}
+
+@layer utilities {
+  /* Custom Animations */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(139, 92, 246, 0.6);
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes gradient-shift {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Animation Classes */
+  .animate-fade-in {
+    animation: fade-in 0.8s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.6s ease-out;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  /* Professional Typography */
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Enhanced Shadows */
+  .shadow-xl {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  .shadow-2xl {
+    box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
+  /* Professional Spacing */
+  .space-y-6 > * + * {
+    margin-top: 1.5rem;
+  }
+
+  .space-y-8 > * + * {
+    margin-top: 2rem;
+  }
+
+  /* Enhanced Transitions */
+  .transition-all {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .transition-transform {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Professional Colors */
+  .bg-primary {
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  }
+
+  .bg-secondary {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  }
+
+  .bg-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+  }
+
+  .bg-error {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+  }
+
+  .bg-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .glass-effect {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  
+  .wallet-btn {
+    @apply p-4;
+  }
+  
+  .nft-card {
+    @apply mb-4;
+  }
+}
+
+/* Focus States */
+button:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #8b5cf6;
+  ring-offset: 2px;
+} 

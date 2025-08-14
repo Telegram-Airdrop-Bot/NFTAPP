@@ -1,0 +1,173 @@
+URL CONFIGURATION GUIDE
+=======================
+
+This guide shows where to set API server and bot server URLs in this NFT verification project.
+
+PRODUCTION URLs:
+- Bot Server: https://bot-server-kem4.onrender.com
+- API Server: https://api-server-wcjc.onrender.com
+
+LOCAL URLs:
+- Bot Server: http://localhost:5001
+- API Server: http://localhost:5002
+
+==========================================
+1. FRONTEND CONFIGURATION
+==========================================
+
+A. frontend/src/App.js (Line 15)
+Current: const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+Change to: const REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'https://api-server-wcjc.onrender.com';
+
+B. frontend/src/config.js (Line 27)
+Current: BASE_URL: process.env.REACT_APP_API_URL || 'https://api-server-wcjc.onrender.com',
+This is already correct.
+
+C. frontend/netlify.toml
+Lines 5, 13, 16, 19:
+Current: REACT_APP_API_URL = "https://meta-betties-api-server.onrender.com"
+Change to: REACT_APP_API_URL = "https://api-server-wcjc.onrender.com"
+
+D. frontend/vercel.json (Line 22)
+Current: "REACT_APP_API_URL": "https://meta-betties-api-server.onrender.com"
+Change to: "REACT_APP_API_URL": "https://api-server-wcjc.onrender.com"
+
+==========================================
+2. BOT SERVER CONFIGURATION
+==========================================
+
+A. bot-server/bot.py (Line 16)
+Current: WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://meta-betties-api-server.onrender.com/api/verify-nft")
+Change to: WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://api-server-wcjc.onrender.com/api/verify-nft")
+
+B. bot-server/bot.py (Line 85) - Verification Link
+Current: verify_link = f"http://localhost:3000?tg_id={user_id}"
+Change to: verify_link = f"https://your-frontend-url.netlify.app?tg_id={user_id}"
+
+==========================================
+3. API SERVER CONFIGURATION
+==========================================
+
+A. api-server/api_server.py (Line 13)
+Current: WEBHOOK_URL = os.getenv("WEBHOOK_URL", "http://localhost:5000/verify_callback")
+Change to: WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://bot-server-kem4.onrender.com/verify_callback")
+
+==========================================
+4. ENVIRONMENT FILES
+==========================================
+
+A. .env file (create this file in root directory)
+Add these lines:
+TELEGRAM_BOT_TOKEN=your_actual_telegram_bot_token
+TELEGRAM_GROUP_ID=your_actual_telegram_group_id
+HELIUS_API_KEY=6873bd5e-0b5d-49c4-a9ab-4e7febfd9cd3
+COLLECTION_ID=j7qeFNnpWTbaf5g9sMCxP2zfKrH5QFgE56SuYjQDQi1
+WEBHOOK_URL=https://bot-server-kem4.onrender.com/verify_callback
+REACT_APP_API_URL=https://api-server-wcjc.onrender.com
+
+B. env_example.txt (Line 10)
+Current: REACT_APP_API_URL=https://meta-betties-api-server.onrender.com
+Change to: REACT_APP_API_URL=https://api-server-wcjc.onrender.com
+
+==========================================
+5. DEPLOYMENT CONFIGURATION
+==========================================
+
+A. bot-server/render.yaml (Line 15)
+Add environment variable:
+- key: WEBHOOK_URL
+  value: https://api-server-wcjc.onrender.com/api/verify-nft
+
+B. api-server/render.yaml (Line 11)
+Add environment variable:
+- key: WEBHOOK_URL
+  value: https://bot-server-kem4.onrender.com/verify_callback
+
+==========================================
+6. STEP-BY-STEP CONFIGURATION
+==========================================
+
+STEP 1: Update Frontend
+1. Edit frontend/src/App.js line 15
+2. Edit frontend/netlify.toml (all REACT_APP_API_URL lines)
+3. Edit frontend/vercel.json line 22
+
+STEP 2: Update Bot Server
+1. Edit bot-server/bot.py line 16
+2. Edit bot-server/bot.py line 85 (verification link)
+
+STEP 3: Update API Server
+1. Edit api-server/api_server.py line 13
+
+STEP 4: Update Environment Files
+1. Create .env file in root directory
+2. Update env_example.txt
+
+STEP 5: Update Deployment Files
+1. Edit bot-server/render.yaml
+2. Edit api-server/render.yaml
+
+==========================================
+7. VERIFICATION COMMANDS
+==========================================
+
+Test API Server:
+curl https://api-server-wcjc.onrender.com/api/config
+
+Test Bot Server:
+curl https://bot-server-kem4.onrender.com/health
+
+Test Frontend:
+Visit your frontend URL and check browser console
+
+==========================================
+8. COMMON ISSUES
+==========================================
+
+Issue 1: Frontend can't connect to API
+Solution: Check REACT_APP_API_URL in frontend files
+
+Issue 2: API can't send webhook to bot
+Solution: Check WEBHOOK_URL in api-server/api_server.py
+
+Issue 3: Bot can't send verification link
+Solution: Check verify_link URL in bot-server/bot.py
+
+Issue 4: Environment variables not loading
+Solution: Make sure .env file exists and has correct format
+
+==========================================
+9. QUICK CHECKLIST
+==========================================
+
+Frontend Files Updated:
+□ frontend/src/App.js
+□ frontend/src/config.js
+□ frontend/netlify.toml
+□ frontend/vercel.json
+
+Bot Server Files Updated:
+□ bot-server/bot.py (WEBHOOK_URL)
+□ bot-server/bot.py (verify_link)
+
+API Server Files Updated:
+□ api-server/api_server.py
+
+Environment Files Updated:
+□ .env (root directory)
+□ env_example.txt
+
+Deployment Files Updated:
+□ bot-server/render.yaml
+□ api-server/render.yaml
+
+==========================================
+10. FINAL TESTING
+==========================================
+
+1. Test API: curl https://api-server-wcjc.onrender.com/api/config
+2. Test Bot: curl https://bot-server-kem4.onrender.com/health
+3. Test Frontend: Visit your frontend URL
+4. Test Complete Flow: Join Telegram group and verify NFT
+
+All URLs should now be correctly configured for production! 

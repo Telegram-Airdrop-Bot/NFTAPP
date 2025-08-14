@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT Verification</title>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        
+        .title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            text-align: left;
+        }
+        
+        .step-number {
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .wallet-info {
+            background: #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        
+        .nft-count {
+            font-size: 2em;
+            color: #667eea;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🔐</div>
+        <h1 class="title">NFT Verification</h1>
+        <p class="subtitle">Connect your Solana wallet to verify NFT ownership and stay in the group.</p>
+        
+        <div id="step1" class="step">
+            <span class="step-number">1</span>
+            <strong>Connect Wallet</strong><br>
+            <small>Click the button below to connect your Solana wallet</small>
+        </div>
+        
+        <div id="step2" class="step hidden">
+            <span class="step-number">2</span>
+            <strong>Verify NFTs</strong><br>
+            <small>We'll check if you have the required NFTs</small>
+        </div>
+        
+        <div id="step3" class="step hidden">
+            <span class="step-number">3</span>
+            <strong>Complete Verification</strong><br>
+            <small>If verified, you'll be allowed to stay in the group</small>
+        </div>
+        
+        <button id="connectBtn" class="btn">Connect Wallet</button>
+        <button id="verifyBtn" class="btn hidden" disabled>Verify NFTs</button>
+        <button id="completeBtn" class="btn hidden" disabled>Complete Verification</button>
+        
+        <div id="status" class="status hidden"></div>
+        
+        <div id="walletInfo" class="wallet-info hidden"></div>
+        
+        <div id="nftInfo" class="hidden">
+            <div class="nft-count" id="nftCount">0</div>
+            <p>NFTs found in your wallet</p>
+        </div>
+    </div>
+
+    <script>
+        let wallet = null;
+        let verificationId = null;
+        let nftCount = 0;
+        
+        // Get verification ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        verificationId = urlParams.get('tg_id') || urlParams.get('id'); // Support both tg_id and id for backward compatibility
+        
+        // Get DOM elements
+        const connectBtn = document.getElementById('connectBtn');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const completeBtn = document.getElementById('completeBtn');
+        const statusDiv = document.getElementById('status');
+        const walletInfo = document.getElementById('walletInfo');
+        const nftInfo = document.getElementById('nftInfo');
+        
+        // Check for verification ID
+        if (!verificationId) {
+            showStatus('❌ Missing Telegram ID! Please make sure you accessed this page from the Telegram bot link.', 'error');
+            console.error('Telegram ID missing from URL:', window.location.search);
+        } else {
+            console.log('Telegram ID found:', verificationId);
+            showStatus('✅ Telegram ID detected. Please connect your wallet to verify NFT ownership.', 'info');
+        }
+        
+        // Add event listeners
+        connectBtn.addEventListener('click', connectWallet);
+        verifyBtn.addEventListener('click', verifyNFTs);
+        completeBtn.addEventListener('click', completeVerification);
+        
+        // Auto-connect on mobile devices
+        window.addEventListener('load', async () => {
+            // Auto-connect if wallet is already connected
+            if (window.solana && window.solana.isPhantom && window.solana.isConnected) {
+                try {
+                    const response = await window.solana.connect();
+                    wallet = response.publicKey.toString();
+                    
+                    showStatus('Wallet already connected!', 'success');
+                    walletInfo.textContent = `Wallet: ${wallet}`;
+                    walletInfo.classList.remove('hidden');
+                    
+                    document.getElementById('step1').classList.add('hidden');
+                    document.getElementById('step2').classList.remove('hidden');
+                    verifyBtn.classList.remove('hidden');
+                    verifyBtn.disabled = false;
+                } catch (error) {
+                    console.log('Auto-connect failed:', error);
+                }
+            }
+            
+            // Auto-connect on mobile devices
+            autoConnectMobileWallet();
+        });
+        
+        // Auto-detect and connect mobile wallets
+        async function autoConnectMobileWallet() {
+            // Check if we're on mobile
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (!isMobile) {
+                console.log('Not on mobile device, skipping auto-connect');
+                return;
+            }
+
+            console.log('Mobile device detected, scanning for wallets...');
+            showStatus('Mobile device detected. Please select your wallet from the options below:', 'info');
+
+            // Wait a bit for wallet detection
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // Try to auto-connect to available mobile wallets
+            const mobileWallets = [
+                { name: 'Phantom', check: () => window.solana?.isPhantom, connect: connectWallet, icon: '🟣' }
+            ];
+
+            // Find available wallets
+            const availableWallets = mobileWallets.filter(wallet => wallet.check());
+            
+            console.log(`Found ${availableWallets.length} available wallets:`, availableWallets.map(w => w.name));
+
+            if (availableWallets.length === 0) {
+                console.log('No mobile wallet found');
+                showStatus('No mobile wallet detected. Please install a Solana wallet app or use a desktop browser.', 'error');
+                return;
+            }
+
+            // Always show the web interface with available wallets highlighted
+            console.log(`Found ${availableWallets.length} wallets, showing web interface with available wallets highlighted...`);
+            showStatus(`Found ${availableWallets.length} wallets. Please select one from the options below:`, 'info');
+            
+            // Show the verification section with available wallets highlighted
+            document.getElementById('step1').classList.remove('hidden');
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3').classList.add('hidden');
+            
+            // Highlight available wallets in the UI
+            highlightAvailableWallets(availableWallets);
+        }
+
+        // Highlight available wallets in the web interface
+        function highlightAvailableWallets(availableWallets) {
+            // Add visual indicators to available wallet buttons
+            availableWallets.forEach(wallet => {
+                const walletName = wallet.name.toLowerCase();
+                const button = document.querySelector(`[onclick*="${walletName}"]`) || 
+                              document.querySelector(`[data-wallet="${walletName}"]`);
+                
+                if (button) {
+                    button.style.border = '2px solid #10b981';
+                    button.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.3)';
+                    button.style.position = 'relative';
+                    
+                    // Add "Available" badge
+                    const badge = document.createElement('div');
+                    badge.textContent = 'Available';
+                    badge.style.cssText = `
+                        position: absolute;
+                        top: -8px;
+                        right: -8px;
+                        background: #10b981;
+                        color: white;
+                        padding: 2px 8px;
+                        border-radius: 12px;
+                        font-size: 10px;
+                        font-weight: bold;
+                    `;
+                    button.appendChild(badge);
+                }
+            });
+        }
+        
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.classList.remove('hidden');
+        }
+        
+        async function connectWallet() {
+            try {
+                console.log('Attempting to connect wallet...');
+                showStatus('Connecting to wallet...', 'info');
+                
+                // Check if Phantom is installed
+                if (!window.solana || !window.solana.isPhantom) {
+                    showStatus('❌ Please install Phantom wallet first!', 'error');
+                    return;
+                }
+                
+                // Check if already connected
+                if (window.solana.isConnected) {
+                    console.log('Wallet already connected, getting public key...');
+                    const response = await window.solana.connect();
+                    const publicKey = response.publicKey.toString();
+                    console.log('Wallet public key:', publicKey);
+                    
+                    if (publicKey && publicKey.length > 0) {
+                        wallet = publicKey;
+                        
+                        showStatus('✅ Wallet already connected!', 'success');
+                        walletInfo.textContent = `Wallet: ${wallet}`;
+                        walletInfo.classList.remove('hidden');
+                        
+                        document.getElementById('step1').classList.add('hidden');
+                        document.getElementById('step2').classList.remove('hidden');
+                        verifyBtn.classList.remove('hidden');
+                        verifyBtn.disabled = false;
+                        return;
+                    } else {
+                        throw new Error('No public key received from wallet');
+                    }
+                }
+                
+                // Try different connection methods for mobile
+                let response;
+                let publicKey = null;
+                
+                try {
+                    console.log('Trying standard connection...');
+                    // Method 1: Standard connection
+                    response = await window.solana.connect();
+                    publicKey = response.publicKey.toString();
+                    console.log('Standard connection successful, public key:', publicKey);
+                } catch (error) {
+                    console.log('Standard connection failed, trying alternative method...', error);
+                    
+                    try {
+                        console.log('Trying request method...');
+                        // Method 2: Request accounts
+                        response = await window.solana.request({ method: 'connect' });
+                        publicKey = response.publicKey ? response.publicKey.toString() : null;
+                        console.log('Request method result:', response);
+                    } catch (error2) {
+                        console.log('Request method failed, trying connect method...', error2);
+                        
+                        try {
+                            console.log('Trying direct connect...');
+                            // Method 3: Direct connect
+                            response = await window.solana.connect({ onlyIfTrusted: false });
+                            publicKey = response.publicKey.toString();
+                            console.log('Direct connect successful, public key:', publicKey);
+                        } catch (error3) {
+                            console.log('Direct connect failed, trying with force...', error3);
+                            
+                            try {
+                                console.log('Trying force connection...');
+                                // Method 4: Force connection
+                                response = await window.solana.connect({ force: true });
+                                publicKey = response.publicKey.toString();
+                                console.log('Force connection successful, public key:', publicKey);
+                            } catch (error4) {
+                                console.log('All connection methods failed:', error4);
+                                throw error4;
+                            }
+                        }
+                    }
+                }
+                
+                if (publicKey && publicKey.length > 0) {
+                    console.log('Wallet connection successful, setting wallet address:', publicKey);
+                    wallet = publicKey;
+                    
+                    showStatus('✅ Wallet connected successfully!', 'success');
+                    walletInfo.textContent = `Wallet: ${wallet}`;
+                    walletInfo.classList.remove('hidden');
+                    
+                    // Show next step
+                    document.getElementById('step1').classList.add('hidden');
+                    document.getElementById('step2').classList.remove('hidden');
+                    verifyBtn.classList.remove('hidden');
+                    verifyBtn.disabled = false;
+                } else {
+                    console.error('No valid public key received from wallet');
+                    throw new Error('No valid wallet address received');
+                }
+                
+            } catch (error) {
+                console.error('Wallet connection error:', error);
+                
+                // Provide specific error messages
+                let errorMessage = 'Failed to connect wallet';
+                
+                if (error.code === 4001) {
+                    errorMessage = '❌ User rejected wallet connection. Please try again.';
+                } else if (error.code === -32002) {
+                    errorMessage = '❌ Wallet connection already pending. Please check your wallet.';
+                } else if (error.code === -32603) {
+                    errorMessage = '❌ Wallet internal error. Please try refreshing the page.';
+                } else if (error.message && error.message.includes('No valid wallet address')) {
+                    errorMessage = '❌ No wallet address received. Please try connecting again.';
+                } else if (error.message) {
+                    errorMessage = '❌ Failed to connect wallet: ' + error.message;
+                }
+                
+                showStatus(errorMessage, 'error');
+            }
+        }
+        
+        async function verifyNFTs() {
+            // Check for Telegram ID first
+            if (!verificationId) {
+                showStatus('❌ Missing Telegram ID! Please make sure you accessed this page from the Telegram bot link.', 'error');
+                console.error('Telegram ID missing:', verificationId);
+                return;
+            }
+
+            if (!wallet) {
+                showStatus('❌ Missing wallet address! Please connect your wallet first.', 'error');
+                return;
+            }
+
+            console.log('Starting verification with:', { verificationId, wallet });
+            
+            try {
+                showStatus('Checking NFTs...', 'info');
+                verifyBtn.disabled = true;
+                
+                // Real API call to check NFTs using Helius API
+                const response = await fetch('https://mainnet.helius-rpc.com/?api-key=6873bd5e-0b5d-49c4-a9ab-4e7febfd9cd3', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        "jsonrpc": "2.0",
+                        "id": "my-id",
+                        "method": "searchAssets",
+                        "params": {
+                            "ownerAddress": wallet
+                        }
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error.message || 'Failed to fetch NFTs');
+                }
+                
+                if (data.result && data.result.items) {
+                    // Filter for non-fungible tokens
+                    const nfts = data.result.items.filter(item => 
+                        item.content && 
+                        item.content.metadata && 
+                        item.content.metadata.token_standard === "NonFungible"
+                    );
+                    
+                    nftCount = nfts.length;
+                    console.log(`Found ${nftCount} NFTs for wallet ${wallet}`);
+                } else {
+                    nftCount = 0;
+                }
+                
+                showStatus(`Found ${nftCount} NFTs in your wallet!`, 'success');
+                nftInfo.classList.remove('hidden');
+                document.getElementById('nftCount').textContent = nftCount;
+                
+                // Show next step
+                document.getElementById('step2').classList.add('hidden');
+                document.getElementById('step3').classList.remove('hidden');
+                completeBtn.classList.remove('hidden');
+                completeBtn.disabled = false;
+                
+            } catch (error) {
+                console.error('NFT verification error:', error);
+                showStatus('Failed to verify NFTs: ' + error.message, 'error');
+                verifyBtn.disabled = false;
+            }
+        }
+        
+        async function completeVerification() {
+            try {
+                showStatus('Completing verification...', 'info');
+                completeBtn.disabled = true;
+                
+                // Send verification data to API server with collection ID
+                const verificationData = {
+                    wallet_address: wallet,
+                    tg_id: verificationId,
+                    collection_id: 'j7qeFNnpWTbaf5g9sMCxP2zfKrH5QFgE56SuYjQDQi1'  // Meta Betties collection ID
+                };
+                
+                // Send to API server for proper collection filtering
+                const apiUrl = 'https://api-server-wcjc.onrender.com/api/verify-nft';
+                
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(verificationData)
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('API verification result:', result);
+                        
+                        if (result.has_nft) {
+                            showStatus(`✅ Verification successful! You have ${result.nft_count} NFTs and now have access to the exclusive Telegram group.`, 'success');
+                            
+                            // Redirect to Telegram group ONLY on success
+                            setTimeout(() => {
+                                showStatus('🔄 Redirecting to Telegram group...', 'success');
+                                setTimeout(() => {
+                                    // Redirect to the private Telegram group ONLY on success
+                                    window.location.href = 'https://t.me/+your_private_group_link';
+                                }, 2000);
+                            }, 1000);
+                        } else {
+                            showStatus('❌ Required NFT not found in your wallet. You will be removed from the group.', 'error');
+                            
+                            // Show error message but DO NOT redirect - user will be removed from group by bot
+                            setTimeout(() => {
+                                showStatus('You will be removed from the group due to verification failure.', 'error');
+                                // NO REDIRECT - let the bot handle group removal
+                            }, 2000);
+                        }
+                    } else {
+                        throw new Error('API request failed');
+                    }
+                } catch (apiError) {
+                    console.error('API verification error:', apiError);
+                    showStatus('Verification completed! Please return to the group.', 'success');
+                }
+                
+            } catch (error) {
+                showStatus('Failed to complete verification: ' + error.message, 'error');
+                completeBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html> 

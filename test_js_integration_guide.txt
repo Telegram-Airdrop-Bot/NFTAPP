@@ -1,0 +1,204 @@
+TEST.JS INTEGRATION GUIDE
+=========================
+
+এই guide-এ দেখানো হয়েছে যে test.js এর functions API server-এ কিভাবে apply করা হয়েছে।
+
+INTEGRATION STATUS
+-----------------
+✅ test.js functions API server-এ successfully integrate করা হয়েছে
+
+FILES CREATED/UPDATED
+====================
+
+1. ✅ api-server/test_js.js
+   - test.js এর সব functions copy করা হয়েছে
+   - NFT verification logic add করা হয়েছে
+   - Command line arguments support করা হয়েছে
+
+2. ✅ api-server/package.json
+   - Node.js dependencies add করা হয়েছে
+   - @solana/web3.js এবং @metaplex-foundation/js add করা হয়েছে
+
+3. ✅ api-server/verifier_js.py
+   - test_js.js file properly call করার জন্য update করা হয়েছে
+   - Better error handling add করা হয়েছে
+   - Output parsing improve করা হয়েছে
+
+4. ✅ api-server/render.yaml
+   - npm install command add করা হয়েছে
+   - Node.js dependencies install করার জন্য configure করা হয়েছে
+
+FUNCTIONS INTEGRATED
+===================
+
+✅ getSolBalance(walletAddress)
+   - SOL balance check করে
+   - Lamports to SOL conversion করে
+
+✅ listNFTs(walletAddress)
+   - Metaplex দিয়ে সব NFTs fetch করে
+   - NFT count return করে
+   - NFT details log করে
+
+✅ listSPLTokens(walletAddress)
+   - SPL tokens fetch করে
+   - Non-zero balance tokens filter করে
+   - Token details log করে
+
+✅ checkNFTVerification(walletAddress)
+   - Main verification function
+   - SOL balance, NFTs, এবং SPL tokens check করে
+   - Verification result return করে
+
+HOW IT WORKS
+============
+
+1. **API Server Flow:**
+   ```
+   Frontend Request → API Server → verifier_js.py → test_js.js → Result
+   ```
+
+2. **JavaScript Execution:**
+   - Python subprocess দিয়ে Node.js script run করে
+   - Wallet address pass করে
+   - JSON output parse করে
+
+3. **Verification Logic:**
+   - যদি wallet-এ কোনো NFT থাকে → verification successful
+   - যদি wallet-এ কোনো NFT না থাকে → verification failed
+
+TESTING THE INTEGRATION
+======================
+
+1. **Local Testing:**
+```bash
+cd api-server
+npm install
+node test_js.js EFwPVHhY6vH64MsMDx9ub8Edn4ktYYBcgqNYki1R3rmE
+```
+
+2. **API Testing:**
+```bash
+curl -X POST https://api-server-wcjc.onrender.com/api/verify-nft \
+     -H "Content-Type: application/json" \
+     -d '{"wallet_address":"EFwPVHhY6vH64MsMDx9ub8Edn4ktYYBcgqNYki1R3rmE","tg_id":"123"}'
+```
+
+3. **Frontend Testing:**
+   - Frontend-এ wallet connect করুন
+   - NFT verification try করুন
+   - Console-এ results check করুন
+
+DEPLOYMENT STEPS
+================
+
+1. **GitHub-এ code push করুন:**
+```bash
+cd api-server
+git add .
+git commit -m "Integrate test.js functions for NFT verification"
+git push origin main
+```
+
+2. **Render Dashboard-এ redeploy করুন:**
+   - https://dashboard.render.com যান
+   - API server service খুলুন
+   - "Manual Deploy" click করুন
+
+3. **Wait for deployment:**
+   - Build complete হওয়া পর্যন্ত wait করুন
+   - Logs check করুন errors আছে কিনা
+
+VERIFICATION COMMANDS
+====================
+
+1. **Test JavaScript directly:**
+```bash
+cd api-server
+node test_js.js EFwPVHhY6vH64MsMDx9ub8Edn4ktYYBcgqNYki1R3rmE
+```
+
+2. **Test API endpoint:**
+```bash
+curl https://api-server-wcjc.onrender.com/api/config
+```
+
+3. **Test NFT verification:**
+```bash
+curl -X POST https://api-server-wcjc.onrender.com/api/verify-nft \
+     -H "Content-Type: application/json" \
+     -d '{"wallet_address":"EFwPVHhY6vH64MsMDx9ub8Edn4ktYYBcgqNYki1R3rmE","tg_id":"123"}'
+```
+
+EXPECTED OUTPUT
+==============
+
+**JavaScript Output:**
+```
+🧾 Fetching data for wallet: EFwPVHhY6vH64MsMDx9ub8Edn4ktYYBcgqNYki1R3rmE
+
+💰 SOL Balance: 0.123 SOL
+
+🔎 NFTs (5) owned by EFwPVHhY6vH64MsMDx9ub8Edn4ktYYBcgqNYki1R3rmE:
+NFT #1
+  Mint Address: ABC123...
+  Name: Meta Betties #1
+  URI: https://...
+----------------------------
+
+🎨 Total NFTs found: 5
+
+✅ Wallet has 5 NFTs - verification successful
+
+📊 Verification Result: { has_nft: true, nft_count: 5 }
+
+✅ Done.
+```
+
+**API Response:**
+```json
+{
+  "has_nft": true,
+  "nft_count": 5,
+  "wallet_address": "EFwPVHhY6vH64MsMDx9ub8Edn4ktYYBcgqNYki1R3rmE",
+  "message": "NFT verification completed (JavaScript approach)"
+}
+```
+
+TROUBLESHOOTING
+===============
+
+**Problem 1: Node.js not found**
+Solution:
+- Render-এ Node.js environment check করুন
+- package.json file verify করুন
+
+**Problem 2: Dependencies not installed**
+Solution:
+- render.yaml-এ npm install command verify করুন
+- Build logs check করুন
+
+**Problem 3: JavaScript file not found**
+Solution:
+- test_js.js file api-server directory-তে আছে কিনা check করুন
+- File path verify করুন
+
+**Problem 4: Verification always fails**
+Solution:
+- JavaScript output logs check করুন
+- Wallet address valid কিনা verify করুন
+- Helius API key working কিনা test করুন
+
+FINAL CHECKLIST
+===============
+
+□ test_js.js file created in api-server directory
+□ package.json with Node.js dependencies
+□ verifier_js.py updated to use test_js.js
+□ render.yaml updated with npm install
+□ Local testing successful
+□ API server redeployed
+□ Frontend integration working
+□ NFT verification working
+
+test.js functions successfully integrated! 🚀 

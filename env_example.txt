@@ -1,0 +1,11 @@
+# Bot Server Environment Variables
+TELEGRAM_BOT_TOKEN=7904086822:AAGcEdL8mJQ38nO8P9QAikmsbrX_CNSC2j8
+TELEGRAM_GROUP_ID=your_telegram_group_id_here
+HELIUS_API_KEY=6873bd5e-0b5d-49c4-a9ab-4e7febfd9cd3
+COLLECTION_ID=j7qeFNnpWTbaf5g9sMCxP2zfKrH5QFgE56SuYjQDQi1
+
+# API Server Environment Variables
+WEBHOOK_URL=https://bot-server-kem4.onrender.com/verify_callback
+
+# Frontend Environment Variables
+REACT_APP_API_URL=https://api-server-wcjc.onrender.com 
