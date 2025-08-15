@@ -10,28 +10,60 @@ import Solflare from '@solflare-wallet/sdk';
 import CONFIG from './config';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
-// Main App Component with Wallet Adapter
+// Enhanced mobile wallet detection
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         (navigator.maxTouchPoints > 0 && navigator.maxTouchPoints > 2);
+};
+
+const isAndroid = () => {
+  return /Android/i.test(navigator.userAgent);
+};
+
+const isChromeMobile = () => {
+  return /Chrome/i.test(navigator.userAgent) && isMobileDevice();
+};
+
+// Main App Component with Enhanced Wallet Adapter
 function App() {
   const endpoint = 'https://api.mainnet-beta.solana.com';
 
-  const wallets = useMemo(
-    () => [
+  const wallets = useMemo(() => {
+    const walletList = [
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter({ network: 'mainnet-beta' }),
       new BackpackWalletAdapter(),
-      // Mobile wallet adapter for better mobile deep linking
-      new SolanaMobileWalletAdapter({
-        appIdentity: { 
-          name: "Meta Betties NFT Verification",
-          uri: "https://meta-betties-verification.com",
-          icon: "https://meta-betties-verification.com/icon.png"
-        },
-        authorizationResultCache: createDefaultAuthorizationResultCache(),
-        cluster: 'mainnet-beta',
-      }),
-    ],
-    []
-  );
+    ];
+
+    // Only add mobile wallet adapter on supported platforms
+    if (isAndroid() || isChromeMobile()) {
+      try {
+        const mobileWallet = new SolanaMobileWalletAdapter({
+          appIdentity: { 
+            name: "Meta Betties NFT Verification",
+            uri: "https://meta-betties-verification.com",
+            icon: "https://meta-betties-verification.com/icon.png"
+          },
+          authorizationResultCache: createDefaultAuthorizationResultCache(),
+          cluster: 'mainnet-beta',
+          // Enhanced configuration for better mobile experience
+          onWalletNotFound: () => {
+            console.log('No mobile wallet found, redirecting to app store');
+            // You can add logic to redirect to app store or show instructions
+          },
+        });
+        
+        walletList.push(mobileWallet);
+        console.log('Mobile wallet adapter initialized successfully');
+      } catch (error) {
+        console.warn('Failed to initialize mobile wallet adapter:', error);
+      }
+    } else {
+      console.log('Mobile wallet adapter not supported on this platform');
+    }
+
+    return walletList;
+  }, []);
 
   // Safety check for wallet initialization
   if (!wallets || wallets.length === 0) {
@@ -353,9 +385,40 @@ function NFTVerificationApp() {
         if (currentRetry < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, currentRetry - 1), 8000); // Exponential backoff, max 8s
           connectionTimeout = setTimeout(async () => {
-            const result = await detectMobileWalletConnection();
-            if (!result && currentRetry < maxRetries) {
-              retryConnection();
+            // Don't call detectMobileWalletConnection recursively - just retry the wallet detection
+            try {
+              // Re-check wallets after delay
+              const retryConnectedAddress = checkWallet(window.solana, 'Phantom') || 
+                                         checkWallet(window.solflare, 'Solflare') ||
+                                         checkWallet(window.xnft?.solana, 'Backpack') ||
+                                         checkWallet(window.slope, 'Slope') ||
+                                         checkWallet(window.glow, 'Glow') ||
+                                         checkWallet(window.coinbaseWalletSolana, 'Coinbase') ||
+                                         checkWallet(window.phantom?.solana, 'Phantom (Legacy)') ||
+                                         checkWallet(window.solflare?.solana, 'Solflare (Legacy)');
+              
+              if (retryConnectedAddress) {
+                console.log('Wallet connection detected on retry:', retryConnectedAddress);
+                // Ensure retryConnectedAddress is a string before setting
+                if (typeof retryConnectedAddress === 'string' && retryConnectedAddress.length > 0) {
+                  setUserAddress(retryConnectedAddress);
+                  setIsConnectingWallet(false);
+                  showVerificationSection();
+                  updateStatus('✅ Wallet connected successfully on retry!', 'success');
+                  return;
+                } else {
+                  console.log('Invalid retryConnectedAddress received:', retryConnectedAddress);
+                }
+              }
+              
+              if (currentRetry < maxRetries) {
+                retryConnection();
+              }
+            } catch (error) {
+              console.log('Retry attempt failed:', error);
+              if (currentRetry < maxRetries) {
+                retryConnection();
+              }
             }
           }, delay);
           window._connectionTimeout = connectionTimeout;
@@ -391,11 +454,17 @@ function NFTVerificationApp() {
       
       if (connectedAddress) {
         console.log(`Mobile wallet ${walletName} connected:`, connectedAddress);
-        setUserAddress(connectedAddress);
-        setIsConnectingWallet(false);
-        showVerificationSection();
-        updateStatus(`✅ ${walletName} wallet connected successfully! Click "Verify NFT Ownership" to continue.`, 'success');
-        return true;
+        // Ensure connectedAddress is a string before setting
+        if (typeof connectedAddress === 'string' && connectedAddress.length > 0) {
+          setUserAddress(connectedAddress);
+          setIsConnectingWallet(false);
+          showVerificationSection();
+          updateStatus(`✅ ${walletName} wallet connected successfully! Click "Verify NFT Ownership" to continue.`, 'success');
+          return true;
+        } else {
+          console.log('Invalid connectedAddress received:', connectedAddress);
+          return false;
+        }
       }
       
       // If no wallet detected, start retry mechanism
@@ -1252,6 +1321,98 @@ function NFTVerificationApp() {
     setIsConnectingWallet(false);
   };
 
+  // Comprehensive mobile wallet connection helper
+  const connectMobileWallet = async (walletName) => {
+    if (!isMobileDevice()) {
+      updateStatus('Mobile wallet connection is only available on mobile devices', 'warning');
+      return;
+    }
+
+    if (!isAndroid() && !isChromeMobile()) {
+      updateStatus('Mobile wallet adapter is only supported on Android and Chrome mobile', 'warning');
+      return;
+    }
+
+    setIsConnectingWallet(true);
+    updateStatus(`Connecting to ${walletName} on mobile...`, 'info');
+
+    try {
+      // Step 1: Try Mobile Wallet Adapter first
+      const mobileWallet = wallets.find(w => w.adapter.name === 'SolanaMobileWalletAdapter');
+      
+      if (mobileWallet && mobileWallet.adapter.readyState === WalletReadyState.Installed) {
+        console.log('Using Mobile Wallet Adapter for connection...');
+        
+        try {
+          select('SolanaMobileWalletAdapter');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await connect();
+          
+          setIsConnectingWallet(false);
+          updateStatus(`✅ ${walletName} connected via Mobile Wallet Adapter!`, 'success');
+          showVerificationSection();
+          return;
+        } catch (mwaError) {
+          console.log('Mobile Wallet Adapter failed:', mwaError);
+          updateStatus('Mobile adapter failed, trying alternative method...', 'warning');
+        }
+      }
+
+      // Step 2: Try direct wallet app connection
+      try {
+        await openWalletApp(walletName);
+        monitorMobileConnection(walletName);
+      } catch (deepLinkError) {
+        console.log('Deep linking failed:', deepLinkError);
+        
+        // Step 3: Show user instructions
+        updateStatus(`Please install ${walletName} from your app store and try again`, 'info');
+        showMobileWalletInstructions(walletName);
+      }
+      
+    } catch (error) {
+      console.error('Mobile wallet connection failed:', error);
+      updateStatus(`Connection failed: ${error.message}`, 'error');
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  };
+
+  // Show mobile wallet installation instructions
+  const showMobileWalletInstructions = (walletName) => {
+    const instructions = {
+      'Phantom': {
+        android: 'https://play.google.com/store/apps/details?id=app.phantom',
+        ios: 'https://apps.apple.com/app/phantom-crypto-wallet/id1598432977'
+      },
+      'Solflare': {
+        android: 'https://play.google.com/store/apps/details?id=com.solflare.mobile',
+        ios: 'https://apps.apple.com/app/solflare/id1580902717'
+      },
+      'Backpack': {
+        android: 'https://play.google.com/store/apps/details?id=com.backpack.app',
+        ios: 'https://apps.apple.com/app/backpack/id6443946036'
+      }
+    };
+
+    const wallet = instructions[walletName];
+    if (wallet) {
+      const platform = isAndroid() ? 'android' : 'ios';
+      const storeUrl = wallet[platform];
+      
+      if (storeUrl) {
+        const confirmInstall = window.confirm(
+          `${walletName} is not installed. Would you like to install it from the ${platform === 'android' ? 'Google Play Store' : 'App Store'}?`
+        );
+        
+        if (confirmInstall) {
+          window.open(storeUrl, '_blank');
+        }
+      }
+    }
+  };
+
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
       {/* Animated Background */}
@@ -1843,7 +2004,7 @@ function NFTVerificationApp() {
                     <div className="text-sm text-gray-400 mb-2">Wallet Address</div>
                     <div className="font-mono text-white break-all text-lg">
                       {publicKey ? `${publicKey.toString().substring(0, 8)}...${publicKey.toString().substring(publicKey.toString().length - 8)}` : 
-                       userAddress ? `${userAddress.substring(0, 8)}...${userAddress.substring(userAddress.length - 8)}` : ''}
+                       userAddress && typeof userAddress === 'string' ? `${userAddress.substring(0, 8)}...${userAddress.substring(userAddress.length - 8)}` : ''}
                     </div>
                   </div>
                   <button 
