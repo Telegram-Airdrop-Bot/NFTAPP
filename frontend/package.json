@@ -7,7 +7,7 @@
     "npm": ">=8.0.0"
   },
   "dependencies": {
-    "@solana/wallet-adapter-backpack": "^0.1.14",
+    "@craco/craco": "^7.1.0",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
@@ -18,25 +18,32 @@
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
     "ajv": "^8.12.0",
+    "assert": "^2.1.0",
     "buffer": "^6.0.3",
-    "cross-env": "^7.0.3",
-    "crypto-browserify": "^3.12.1",
+    "crypto-browserify": "^3.12.0",
+    "https-browserify": "^1.0.0",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
     "process": "^0.11.10",
+    "querystring-es3": "^0.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "serve": "^14.2.1",
     "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
+    "url": "^0.11.3",
+    "util": "^0.12.5",
+    "web-vitals": "^2.1.4",
+    "browserify-zlib": "^0.2.0",
+    "constants-browserify": "^1.0.0"
   },
   "scripts": {
     "start": "serve -s build -l $PORT",
-    "build": "cross-env GENERATE_SOURCEMAP=false react-app-rewired build",
-    "build:render": "GENERATE_SOURCEMAP=false react-app-rewired build",
-    "build:yarn": "yarn install && yarn add @solana-mobile/wallet-adapter-mobile@1.0.1 && GENERATE_SOURCEMAP=false react-app-rewired build",
-    "dev": "react-app-rewired start",
-    "test": "react-app-rewired test",
+    "build": "GENERATE_SOURCEMAP=false craco build",
+    "dev": "craco start",
+    "test": "craco test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -60,7 +67,6 @@
   "devDependencies": {
     "autoprefixer": "^10.4.14",
     "postcss": "^8.4.24",
-    "react-app-rewired": "^2.2.1",
     "tailwindcss": "^3.3.0"
   },
   "overrides": {
